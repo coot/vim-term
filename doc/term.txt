@@ -1,4 +1,4 @@
-Help for Vim-Terminal plugin *vim-terminal*
+Help for Vim-Term plugin *vim-term*
 
 						    *:Term*
 :Term [options] [args]
