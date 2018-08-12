@@ -1,0 +1,24 @@
+Help for Vim-Terminal plugin *vim-terminal*
+
+						    *:Term*
+:Term [options] [args]
+	if no args are given list terminals, otherwise run the command [args].
+	[options] can be any `:terminal` option plus one of
+	++termwin     reuse terminal window (if already opened)
+	++nokil	      do not kill (by default `++kill=kill`is passed)
+	++rows=n      use that meany rows (for both window and the terminal),
+		      this value is persistent per buffer (stored in
+		      `b:term_rows` the default value is `16`.
+
+						    *:Shell*
+:Shell [options]
+	Open a shell, [options] are like the same as for `:Term` command.
+
+						    *:NixShell*
+:NixTerm [options] [args]
+	Either open `nix-shell` or run [args] command in using `nix-shell --run`.
+	[options] can be any `:Term` option or any nix-shell flag, e.g. >
+	    :NixShell -A default --arg test true
+<
+	It is only defined if you set `g:terminal_nix_term` varaible to any
+	value.
