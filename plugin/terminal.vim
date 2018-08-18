@@ -287,7 +287,7 @@ fun! s:Term(bang, vert, ...)
   else
     let args = a:000
   endif
-  if len(args)
+  if len(filter(copy(args), {idx, arg -> !s:isTermArg(split(arg, '\s*=\s*'))}))
     call s:RunTerm(a:bang, a:vert, args)
   else
     call s:ListTerms()
