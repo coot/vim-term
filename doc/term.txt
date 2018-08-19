@@ -1,5 +1,9 @@
 Help for Vim-Term plugin *vim-term*
 
+The plugin requires |+pythonx|, it will work without it but a bit
+unexpectedly (command args are passed with <f-args>).  Python support is used
+to parse arguments with `shlex.split` function.
+
 						    *:Term*
 :Term [options] [args]
 	if no args are given list terminals, otherwise run the command [args].
@@ -9,6 +13,11 @@ Help for Vim-Term plugin *vim-term*
 	++rows=n      use that meany rows (for both window and the terminal),
 		      this value is persistent per buffer (stored in
 		      `b:term_rows` the default value is `16`.
+
+	Examples: >
+	  :Term ++termwin ls
+	  :Term ++hidden firefox %:r.html
+	  :Term ++hidden http-server "some directory with spaces"
 
 						    *:Shell*
 :Shell [options]
@@ -22,3 +31,10 @@ Help for Vim-Term plugin *vim-term*
 <
 	It is only defined if you set `g:terminal_nix_term` varaible to any
 	value.
+
+	Note that the command you want run must be quoted.
+
+	Examples: >
+	  :NixTerm
+	  :NixTerm -A arg --arg dev true "ghcid -c 'cabal new-repl'"
+<

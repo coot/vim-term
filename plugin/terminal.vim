@@ -7,6 +7,29 @@ fun! s:ShellBufs(termwin)
   return filter(getbufinfo(), {key, val -> getbufvar(val.bufnr, "&buftype") == "terminal" && (a:termwin || getbufvar(val.bufnr, "isShell") == v:true)})
 endfun
 
+fun! s:ShellParse(arg, ...)
+  let arg = substitute(a:arg, '++\(\w\+\)\s*=\s*', '++\1=', 'g')
+if has("pythonx")
+pythonx << EOF
+import vim
+import shlex
+arg = vim.eval('arg')
+vim.command("let ret=%s" % shlex.split(arg))
+EOF
+  return ret
+else
+  return a:000
+endif
+endfun
+
+fun! s:ShellJoin(args)
+if has("pythonx")
+  return join(map(a:args, {idx, val -> escape(val, ' ')}))
+else
+  return join(a:args)
+endif
+endfun
+
 fun! s:OpenShell(vert, argList, range, line1, line2)
   let argList = copy(a:argList)
   if a:range == 0
@@ -42,9 +65,10 @@ fun! s:OpenShell(vert, argList, range, line1, line2)
   let args = join(map(
 	\ filter(
 	  \ map(copy(argList), {idx, val -> split(val, '\s*=\s*')}),
-          \ {idx, val -> s:isShellArg(val)}),
+          \ {idx, val -> s:IsShellArg(val)}),
 	\ {idx, val -> join(val, '=')})
 	\ )
+
   try
     exe range . (a:vert ? "vert " : "") . "term " . args . " " . &l:shell
   catch /.*/
@@ -119,7 +143,7 @@ fun! s:Shell(bang, vert, args, range, line1, line2)
   let args = join(map(
 	\ filter(
 	  \ map(copy(argList), {idx, val -> split(val, '\s*=\s*')}),
-          \ {idx, val -> s:isArg(val)}),
+          \ {idx, val -> s:IsArg(val)}),
 	\ {idx, val -> join(val, '=')})
 	\ )
  
@@ -129,7 +153,7 @@ fun! s:Shell(bang, vert, args, range, line1, line2)
   endif
   if index(argList, "++curwin") == -1
     exe (a:vert ? "vert " : "") . "sp " . args
-    setl nonu nornu wfh wfw nospell
+    setl ??nonu nornu wfh wfw nospell
   endif
   exe "b " . bnr
   if !exists("b:term_rows")
@@ -143,7 +167,7 @@ fun! s:Shell(bang, vert, args, range, line1, line2)
   endif
 endfun
 
-fun! s:isShellArg(arg)
+fun! s:IsShellArg(arg)
   if index(['++close', '++nokill', '++noclose', '++open', '++curwin', '++hidden', '++rows', '++cols', '++eof', '++norestore', '++kill'], a:arg[0]) != -1
     return v:true
   else
@@ -151,15 +175,15 @@ fun! s:isShellArg(arg)
   endif
 endfun
 
-fun! s:isTermArg(arg)
-  if s:isShellArg(a:arg) || index(['++termwin', '++notermwin', '++nokill'], a:arg[0]) != -1
+fun! s:IsTermArg(arg)
+  if s:IsShellArg(a:arg) || index(['++termwin', '++notermwin', '++nokill'], a:arg[0]) != -1
     return v:true
   else
     return v:false
   endif
 endfun
 
-fun! s:isArg(arg)
+fun! s:IsArg(arg)
   if a:arg[0] =~ '^++'
     if index(["++ff", "++enc", "++bin", "++nobin", "++bad", "++edit"], a:arg[0]) != -1
       return v:true
@@ -190,7 +214,11 @@ fun! OnTerm(cmd)
   exe a:cmd
 endfun
 
-com! -nargs=+ TermDo :bufdo call OnTerm(<args>)
+com! -nargs=+ OnTerm :bufdo call OnTerm(<args>)
+
+fun! s:LeftAlign(s, d)
+  return a:s . repeat(' ', max([a:d - len(a:s), 0]))
+endfun
 
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
@@ -200,7 +228,7 @@ fun! s:ListTerms()
   if len(terms) == 0
     return
   endif
-  let idx = inputlist(map(copy(terms), {idx, buf -> printf("%2d [%3d] %s", idx + 1, buf.bufnr, bufname(buf.bufnr))}))
+  let idx = inputlist(map(copy(terms), {idx, buf -> printf("%2d [%3d] %s %s", idx + 1, buf.bufnr, s:LeftAlign(bufname(buf.bufnr), 10), !empty(term_gettitle(buf.bufnr)) ? "[" . term_gettitle(buf.bufnr) . "]" : "")}))
   if idx == 0 || idx > len(terms)
     return
   endif
@@ -223,124 +251,179 @@ fun! s:ListTerms()
   endif
 endfun
 
-fun! s:RunTerm(bang, vert, args)
-    let term_args = []
-    let cmd_args = []
-    for arg in a:args
-      if arg =~ '^++'
-	call add(term_args, arg)
-      else
-	call add(cmd_args, arg)
-      endif
-    endfor
-    let cmd = join(cmd_args, ' ')
-    let inTermWin = index(term_args, "++termwin") >= 0
-    let cwinnr = v:null
-    if inTermWin
-      let inTermWin = v:false
-      call filter(term_args, {key, arg -> split(arg, '\s*=\s*')[0] != "++termwin"})
-      let cwinnr = v:null
-      let win = s:FindTermWin()
-      if !empty(win)
-        let inTermWin = v:true
-        let winnr = win.winnr
-        let cwinnr = winnr()
-        call add(term_args, "++curwin")
-        exe winnr . "wincmd w"
-      endif
+" map :term arguments to term_start option names
+fun! s:TermArgMap(name)
+  if a:name == "++rows"
+    return "term_rows"
+  elseif a:name == "++cols"
+    return "term_cols"
+  elseif a:name == "++kill"
+    return "term_kill"
+  elseif a:name == "++close"
+    return "term_finish"
+  elseif a:name == "++noclose"
+    return "term_finish"
+  elseif a:name == "++open"
+    return "term_finish"
+  elseif a:name == "++eof"
+    return "eof_chars"
+  else
+    return a:name[2:]
+  endif
+endfun
+
+fun! s:TermWin(term_args)
+  let term_win = index(a:term_args, "++termwin") >= 0
+  let term_winnr = v:null
+  if term_win
+    let term_win = v:false
+    call filter(a:term_args, {key, arg -> split(arg, '\s*=\s*')[0] != "++termwin"})
+    let term_winnr = v:null
+    let win = s:FindTermWin()
+    if !empty(win)
+      let term_win = v:true
+      let winnr = win.winnr
+      let term_winnr = winnr()
+      call add(a:term_args, "++curwin")
+      exe winnr . "wincmd w"
     endif
-    if index(term_args, "++nokill") == -1
-      call add(term_args, "++kill=kill")
+  endif
+  let idx = index(a:term_args, "++nokill")
+  if idx == -1
+    call add(a:term_args, "++kill=kill")
+  else
+    call remove(a:term_args, idx)
+  endif
+  return [a:term_args, term_winnr]
+endfun
+
+" split terminal arguments from the command arguments
+fun! s:SplitTermArgs(args)
+  let term_args = []
+  let term_cmd  = []
+  for arg in a:args
+    if s:IsTermArg(split(arg, '\s*=\s*'))
+      call add(term_args, arg)
+    else
+      call add(term_cmd, arg)
     endif
-    let vim_term_args = filter(copy(term_args), {idx,val -> s:isShellArg(split(val,'\s*=\s*'))})
+  endfor
+  return [term_args, term_cmd]
+endfun
+
+fun! s:TermArgsToTermOpts(term_args, term_opts)
+  for arg in map(copy(a:term_args), {idx, val -> split(val, '\s*=\s*')})
+    if !s:IsShellArg(arg)
+      continue
+    endif
+    let val = len(arg) > 1 ? arg[1] : v:true
+    if arg[0] == "++close"
+      let val = "close"
+    elseif arg[0] == "++noclose"
+      continue
+    elseif arg[0] == "++open"
+      let val = "open"
+    endif
+    
+    let a:term_opts[s:TermArgMap(arg[0])] = val
+  endfor
+  return a:term_opts
+endfun
+
+fun! s:RunTerm(bang, term_winnr, term_opts, term_cmd)
     try
-      let g:cmd = (a:vert ? "vert " : "") . "term " . join(vim_term_args, ' ') . " " . cmd
-      exe (a:vert ? "vert " : "") . "term " . join(vim_term_args, ' ') . " " . cmd
+      let term_bufnr = term_start(a:term_cmd, a:term_opts)
     catch /.*/
-      echoerr v:errmsg
-      return
+      echohl ErrorMsg
+      echomsg "vim-term cought: " . v:errmsg
+      echohl Normal
+      if &buftype != "terminal"
+	return
+      endif
     endtry
-    if index(term_args, "++hidden") != -1
+    if get(a:term_opts, "hidden", v:false)
+      call setbufvar(term_bufnr, "term_rows", get(a:term_opts, "term_rows", 16))
       return
     endif
-    let inCurWin = !inTermWin && index(term_args, "++curwin") >= 0
-    if !inCurWin
+    let curwin = !a:term_winnr && get(a:term_opts, "curwin", v:false)
+    if !curwin
       setl nonu nornu nospell wfh wfw
     endif
-    if a:bang == "" && cwinnr != v:null
-      exe cwinnr . "wincmd w"
+    if a:bang == "" && a:term_winnr != v:null
+      exe a:term_winnr . "wincmd w"
     endif
-    let rows = s:getRows(copy(term_args))
-    if rows == v:null
-      let rows = 16
-    endif
-    let b:term_rows = rows
-    if !a:vert && !inTermWin && !inCurWin
-      exe "resize" . rows
+    let b:term_rows = get(a:term_opts, "term_rows", 15)
+    if !get(a:term_opts, "vertical", v:false) && !a:term_winnr && !curwin
+      exe "resize" . b:term_rows
     endif
 endfun
 
 " Bang: also show shells
-fun! s:Term(bang, vert, ...)
-  if a:0 >= 1 && type(a:1) == v:t_list
-    let args = a:1
-  else
-    let args = a:000
-  endif
-  if len(filter(copy(args), {idx, arg -> !s:isTermArg(split(arg, '\s*=\s*'))}))
-    call s:RunTerm(a:bang, a:vert, args)
+fun! s:Term(bang, vertical, args)
+  let [term_args, term_cmd]   = s:SplitTermArgs(a:args)
+  let [term_args, term_winnr] = s:TermWin(term_args)
+  let term_opts = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical, "term_rows": 16})
+  if len(term_cmd)
+    call s:RunTerm(a:bang, term_winnr, term_opts, term_cmd)
   else
     call s:ListTerms()
   endif
 endfun
 
-com! -bang -nargs=* -complete=file Term  :call s:Term(<q-bang>, v:false, <f-args>)
-com! -bang -nargs=* -complete=file VTerm :call s:Term(<q-bang>, v:true,  <f-args>)
+com! -bang -nargs=* -complete=file Term  :call s:Term(<q-bang>, v:false, s:ShellParse(<q-args>, <f-args>))
+com! -bang -nargs=* -complete=file VTerm :call s:Term(<q-bang>, v:true,  s:ShellParse(<q-args>, <f-args>))
 
-fun! s:NixTerm(bang, vert, ...)
-  let args = copy(a:000)
+fun! s:NixTerm(bang, vertical, args)
   let nixfile = ""
-  if args[0] =~# '^\f\+\.nix$'
-    let nixfile = args[0]
-    call remove(args, 0)
+  if !empty(a:args) && a:args[0] =~# '^\f\+\.nix$'
+    let nixfile = a:args[0]
+    call remove(a:args, 0)
+  else
+    let nixfile = ""
   endif
 
   " nix-shell options
-  let nixattr = ""
-  let idx = index(args, "-A")
+  let nixattrs = []
+  let idx = index(a:args, "-A")
   if idx >= 0
-    let nixattr .= "-A " . args[idx + 1]
-    call remove(args, idx, idx + 1)
+    call extend(nixattrs, ["-A", a:args[idx + 1]])
+    call remove(a:args, idx, idx + 1)
   endif
-  let idx = index(args, "--prune")
-  if idx >= 0
-    let nixattr .= (!empty(nixattr) ? " " : "") . "--prune"
-    call remove(args, idx)
+  let idx = index(a:args, "--prune")
+  if idx >= 0 
+    call add(nixattrs, "--prune")
+    call remove(a:args, idx)
   endif
-  while index(args, "--arg") >= 0
-    let idx = index(args, "--arg")
-    let nixattr .= (!empty(nixattr) ? " " : "") . "--arg " . args[idx+1] . " " . args[idx+2]
-    call remove(args, idx, idx + 2)
+  while index(a:args, "--arg") >= 0
+    let idx = index(a:args, "--arg")
+    call extend(nixattrs, ["--arg", a:args[idx+1], a:args[idx+2]])
+    call remove(a:args, idx, idx + 2)
   endwhile
-  while index(args, "--argstr") >= 0
-    let idx = index(args, "--argstr")
-    let nixattr .= (!empty(nixattr) ? " " : "") . "--argstr " . args[idx+1] . " " . args[idx+2]
-    call remove(args, idx, idx + 2)
+  while index(a:args, "--argstr") >= 0
+    call extend(nixattrs, ["--argstr", a:args[idx+1], a:args[idx+2]])
+    call remove(a:args, idx, idx + 2)
   endwhile
 
-  let shell=&shell
-  if len(filter(copy(args), {idx, val -> !s:isTermArg(split(val,'\s*=\s*'))})) > 0
-    " has command
-    let &shell="nix-shell " . nixfile . " " . nixattr . " --run"
-  else
-    call extend(args, ["nix-shell", nixattr])
+  let [term_args, term_cmd]   = s:SplitTermArgs(a:args)
+  let [term_args, term_winnr] = s:TermWin(term_args)
+  let term_opts = {"vertical": a:vertical, "term_rows": 16}
+  if empty(term_cmd)
+    let term_opts["term_finish"] = "close"
   endif
-  let g:args = args
-  call s:Term(a:bang, a:vert, args)
-  let &shell=shell
+  let term_opts = s:TermArgsToTermOpts(term_args, term_opts)
+  let nix_cmd = ["nix-shell"]
+  if !empty(nixfile)
+    call add(nix_cmd, nixfile)
+  endif
+  call extend(nix_cmd, nixattrs)
+  if len(term_cmd)
+    call add(nix_cmd, "--run")
+    call extend(nix_cmd, term_cmd)
+  endif
+  call s:RunTerm(a:bang, term_winnr, term_opts, nix_cmd)
 endfun
 
 if exists("g:terminal_nix_term")
-  com! -bang -nargs=* -complete=file NixTerm  :call s:NixTerm(<q-bang>, v:false, <f-args>)
-  com! -bang -nargs=* -complete=file VNixTerm :call s:NixTerm(<q-bang>, v:true,  <f-args>)
+  com! -bang -nargs=* -complete=file NixTerm  :call s:NixTerm(<q-bang>, v:false, s:ShellParse(<q-args>, <f-args>))
+  com! -bang -nargs=* -complete=file VNixTerm :call s:NixTerm(<q-bang>, v:true,  s:ShellParse(<q-args>, <f-args>))
 endif
