@@ -321,12 +321,3 @@ if exists("g:terminal_nix_term")
   com! -bang -nargs=* -complete=file NixTerm  :call s:NixTerm(<q-bang>, v:false, s:ShellParse(<q-args>, <f-args>))
   com! -bang -nargs=* -complete=file VNixTerm :call s:NixTerm(<q-bang>, v:true,  s:ShellParse(<q-args>, <f-args>))
 endif
-
-fun! OnTerm(cmd)
-  if &buftype !=# 'terminal'
-    return
-  endif
-  exe a:cmd
-endfun
-
-com! -nargs=+ OnTerm :bufdo call OnTerm(<args>)
