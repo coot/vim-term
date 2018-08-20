@@ -2,14 +2,17 @@ Help for Vim-Term plugin *vim-term*
 
 The plugin requires |+pythonx|, it will work without it but a bit
 unexpectedly (command args are passed with <f-args>).  Python support is used
-to parse arguments with `shlex.split` function.
+to parse arguments with `shlex.split` function, i.e. argument are parsed the
+same way as in a terminal; if there is no python support you can explicitly
+tell how to parse them by escaping white spaces which should not split
+arguments (this is how <f-args> works).
 
 						    *:Term*
 :Term [options] [args]
 	if no args are given list terminals, otherwise run the command [args].
 	[options] can be any `:terminal` option plus one of
 	++termwin     reuse terminal window (if already opened)
-	++nokil	      do not kill (by default `++kill=kill`is passed)
+	++nokill      do not kill (by default `++kill=kill`is passed)
 	++rows=n      use that meany rows (for both window and the terminal),
 		      this value is persistent per buffer (stored in
 		      `b:term_rows` the default value is `16`.
@@ -23,7 +26,7 @@ to parse arguments with `shlex.split` function.
 :Shell [options]
 	Open a shell, [options] are like the same as for `:Term` command.
 
-						    *:NixShell*
+						    *:NixTerm*
 :NixTerm [options] [args]
 	Either open `nix-shell` or run [args] command in using `nix-shell --run`.
 	[options] can be any `:Term` option or any nix-shell flag, e.g. >
