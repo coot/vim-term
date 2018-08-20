@@ -132,7 +132,7 @@ fun! s:TermArgMap(name)
 endfun
 
 fun! s:TermWin(term_args)
-  let term_win = index(a:term_args, "++termwin") >= 0
+  let term_win   = index(a:term_args, "++termwin") >= 0
   let term_winnr = v:null
   if term_win
     let term_win = v:false
@@ -153,7 +153,7 @@ fun! s:TermWin(term_args)
   else
     call remove(a:term_args, idx)
   endif
-  return [a:term_args, term_winnr]
+  return term_winnr
 endfun
 
 " Split terminal arguments from the command arguments.
@@ -173,6 +173,9 @@ endfun
 " Map term args to terminal options, second argument is the set of default
 " terminal options.
 fun! s:TermArgsToTermOpts(term_args, term_opts)
+  if !get(a:term_opts, "vertical", v:false)
+    let a:term_opts["term_rows"] = get(a:term_opts, "term_rows", 16)
+  endif
   for arg in map(copy(a:term_args), {idx, val -> split(val, '\s*=\s*')})
     if !s:IsShellArg(arg)
       continue
@@ -231,11 +234,8 @@ fun! s:Shell(bang, vertical, args)
     if index(term_args, "++notermwin") == -1
       call add(term_args, "++termwin")
     endif
-    let [term_args, term_winnr] = s:TermWin(term_args)
+    let term_winnr = s:TermWin(term_args)
     let term_opts = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
-    if !a:vertical
-      let term_opts["term_rows"] = 16
-    endif
     let term_opts = s:TermArgsToTermOpts(term_args, term_opts)
     return s:Terminal("!", v:true, term_winnr, term_opts, s:ShellParse(&shell, split(&shell)))
   else
@@ -248,13 +248,10 @@ com! -bang -nargs=* VShell call s:Shell(<q-bang>, v:true,  <q-args>)
 
 " Run a command in a termianl.
 fun! s:Term(bang, vertical, args)
-  let [term_args, term_cmd]   = s:SplitTermArgs(a:args)
-  let [term_args, term_winnr] = s:TermWin(term_args)
-  let term_opts = {"vertical": a:vertical}
-  if !a:vertical
-    let term_opts["term_rows"] = 16
-  endif
-  let term_opts = s:TermArgsToTermOpts(term_args, term_opts)
+  let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let term_winnr            = s:TermWin(term_args)
+  let term_opts		    = {"vertical": a:vertical}
+  let term_opts		    = s:TermArgsToTermOpts(term_args, term_opts)
   if len(term_cmd)
     call s:Terminal(a:bang, v:false, term_winnr, term_opts, term_cmd)
   else
@@ -265,8 +262,7 @@ endfun
 com! -bang -nargs=* -complete=file Term  :call s:Term(<q-bang>, v:false, s:ShellParse(<q-args>, <f-args>))
 com! -bang -nargs=* -complete=file VTerm :call s:Term(<q-bang>, v:true,  s:ShellParse(<q-args>, <f-args>))
 
-" Open a nix-shell or a run a command in a nix shell
-fun! s:NixTerm(bang, vertical, args)
+fun! s:NixArgs(args)
   let nixfile = ""
   if !empty(a:args) && a:args[0] =~# '^\f\+\.nix$'
     let nixfile = a:args[0]
@@ -276,33 +272,35 @@ fun! s:NixTerm(bang, vertical, args)
   endif
 
   " nix-shell options
-  let nixattrs = []
+  let nix_args = []
   let idx = index(a:args, "-A")
   if idx >= 0
-    call extend(nixattrs, ["-A", a:args[idx + 1]])
+    call extend(nix_args, ["-A", a:args[idx + 1]])
     call remove(a:args, idx, idx + 1)
   endif
   let idx = index(a:args, "--prune")
   if idx >= 0 
-    call add(nixattrs, "--prune")
+    call add(nix_args, "--prune")
     call remove(a:args, idx)
   endif
   while index(a:args, "--arg") >= 0
     let idx = index(a:args, "--arg")
-    call extend(nixattrs, ["--arg", a:args[idx+1], a:args[idx+2]])
+    call extend(nix_args, ["--arg", a:args[idx+1], a:args[idx+2]])
     call remove(a:args, idx, idx + 2)
   endwhile
   while index(a:args, "--argstr") >= 0
-    call extend(nixattrs, ["--argstr", a:args[idx+1], a:args[idx+2]])
+    call extend(nix_args, ["--argstr", a:args[idx+1], a:args[idx+2]])
     call remove(a:args, idx, idx + 2)
   endwhile
+  return [nixfile, nix_args]
+endfun
 
-  let [term_args, term_cmd]   = s:SplitTermArgs(a:args)
-  let [term_args, term_winnr] = s:TermWin(term_args)
-  let term_opts = {"vertical": a:vertical}
-  if !a:vertical
-    let term_opts["term_rows"] = 16
-  endif
+" Open a nix-shell or a run a command in a nix shell
+fun! s:NixTerm(bang, vertical, args)
+  let [nixfile,   nix_args] = s:NixArgs(a:args)
+  let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let term_winnr            = s:TermWin(term_args)
+  let term_opts		    = {"vertical": a:vertical}
   if empty(term_cmd)
     let term_opts["term_finish"] = "close"
   endif
@@ -311,7 +309,7 @@ fun! s:NixTerm(bang, vertical, args)
   if !empty(nixfile)
     call add(nix_cmd, nixfile)
   endif
-  call extend(nix_cmd, nixattrs)
+  call extend(nix_cmd, nix_args)
   if len(term_cmd)
     call add(nix_cmd, "--run")
     call extend(nix_cmd, term_cmd)
