@@ -378,7 +378,9 @@ fun! s:NixTerm(bang, vertical, args)
   endif
   call extend(nix_cmd, nix_args)
   if len(term_cmd)
-    call add(nix_cmd, "--run")
+    if index(term_cmd, "--run") == -1 && index(term_cmd, "--command") == -1
+      call add(nix_cmd, "--run")
+    endif
     call extend(nix_cmd, term_cmd)
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
