@@ -72,7 +72,7 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(term_bufs, jump_one, vertical)
+fun! s:ListTerms(term_bufs, jump_one, vertical, termwin)
   if len(a:term_bufs) == 0
     return
   endif
@@ -103,7 +103,7 @@ fun! s:ListTerms(term_bufs, jump_one, vertical)
   endif
   let term = a:term_bufs[idx-1]
   let win = s:FindTermWin()
-  if !empty(win)
+  if a:termwin && !empty(win)
     exe win.winnr . "wincmd w"
     exe "b " . term.bufnr
     setl buftype=terminal
@@ -256,7 +256,7 @@ fun! s:Shell(bang, vertical, args)
     let term_opts = s:TermArgsToTermOpts(term_args, term_opts)
     return s:Terminal("!", v:true, term_winnr, term_opts, s:ShellParse(&shell, split(&shell)))
   else
-    call s:ListTerms(term_bufs, v:true, a:vertical)
+    call s:ListTerms(term_bufs, v:true, a:vertical, !empty(term_winnr))
   endif
 endfun
 
@@ -272,7 +272,7 @@ fun! s:Term(bang, vertical, args)
   if len(term_cmd)
     call s:Terminal(a:bang, v:false, term_winnr, term_opts, term_cmd)
   else
-    call s:ListTerms(s:TermBufs(v:true), v:false, a:vertical)
+    call s:ListTerms(s:TermBufs(v:true), v:false, a:vertical, !empty(term_winnr))
   endif
 endfun
 
