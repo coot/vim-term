@@ -1,8 +1,3 @@
-augroup Terminal
-  au!
-  au TerminalOpen * if &buftype == "terminal" | setl nonu nornu nospell | endif
-augroup END
-
 fun! s:ShellParse(arg, ...)
   let arg = substitute(a:arg, '++\(\w\+\)\s*=\s*', '++\1=', 'g')
 if has("pythonx")
@@ -71,7 +66,7 @@ endfun
 " Returns a list of terminal buffers, if term_shell is false include only
 " shells.
 fun! s:TermBufs(term_shell)
-  return filter(getbufinfo(), {key, val -> getbufvar(val.bufnr, "&buftype") == "terminal" && (a:term_shell || getbufvar(val.bufnr, "term_shell") == v:true)})
+  return filter(map(sort(term_list(), 'n'), {key, bufnr -> getbufinfo(bufnr)[0]}), {key, val -> (a:term_shell || getbufvar(val.bufnr, "term_shell") == v:true)})
 endfun
 
 " todo:
@@ -84,7 +79,24 @@ fun! s:ListTerms(term_bufs, jump_one, vertical)
   if a:jump_one && len(a:term_bufs) == 1
     let idx = 1
   else
-    let idx = inputlist(map(copy(a:term_bufs), {idx, buf -> printf("%2d [%3d] %s %s", idx + 1, buf.bufnr, s:LeftAlign(substitute(bufname(buf.bufnr), '\s\+(\d\+)\s*$', '', ''), 10), !empty(term_gettitle(buf.bufnr)) ? "[" . term_gettitle(buf.bufnr) . "]" : "")}))
+    echohl Title
+    let n  = max(map(copy(a:term_bufs), {idx, buf -> len(join(job_info(term_getjob(buf.bufnr))['cmd'], ' '))}))
+    let mt = 16 + n + max(map(copy(a:term_bufs), {idx, buf -> len(term_gettitle(buf.bufnr)) + 2}))
+    if mt > &co
+      let n = max([max(map(copy(a:term_bufs), {idx, buf -> len(bufname(buf.bufnr))})), 10])
+    endif
+    echo printf("%s %s %s %s %s", "idx", "bufnr", "st", s:LeftAlign("cmd", n), "title")
+    echohl Normal
+    let idx = inputlist(map(copy(a:term_bufs), {idx, buf -> printf(
+	  \ "%2d  [%3d] %s %s %s",
+	  \ idx + 1,
+	  \ buf.bufnr,
+	  \ s:LeftAlign(join(map(split(term_getstatus(buf.bufnr), ","), {idx, st -> st[0]}), ""), 2),
+	  \ (mt <= &co)
+	    \  ? s:LeftAlign(join(job_info(term_getjob(buf.bufnr))["cmd"], " "), n)
+	    \  : s:LeftAlign(bufname(buf.bufnr)[1:], n),
+	  \ !empty(term_gettitle(buf.bufnr)) ? "[" . term_gettitle(buf.bufnr) . "]" : ""
+	  \ )}))
   endif
   if idx == 0 || idx > len(a:term_bufs)
     return
@@ -184,6 +196,9 @@ fun! s:TermArgsToTermOpts(term_args, term_opts)
     if arg[0] == "++close"
       let val = "close"
     elseif arg[0] == "++noclose"
+      if get(a:term_opts, "term_finish", v:null) == "close"
+	call remove(a:term_opts, "term_finish")
+      endif
       continue
     elseif arg[0] == "++open"
       let val = "open"
@@ -208,7 +223,9 @@ fun! s:Terminal(bang, term_shell, term_winnr, term_opts, term_cmd)
       return
     endif
   endtry
-  call setbufvar(term_bufnr, "term_shell", a:term_shell)
+  if exists("term_bufnr")
+    call setbufvar(term_bufnr, "term_shell", a:term_shell)
+  endif
   if get(a:term_opts, "hidden", v:false)
     call setbufvar(term_bufnr, "term_rows", get(a:term_opts, "term_rows", 16))
     return
@@ -271,34 +288,84 @@ fun! s:NixArgs(args)
     let nixfile = ""
   endif
 
+  let len = len(a:args)
+
   " nix-shell options
   let nix_args = []
-  let idx = index(a:args, "-A")
-  if idx >= 0
-    call extend(nix_args, ["-A", a:args[idx + 1]])
-    call remove(a:args, idx, idx + 1)
-  endif
-  let idx = index(a:args, "--prune")
-  if idx >= 0 
-    call add(nix_args, "--prune")
+  let idx = 0
+  let remove   = []
+  let break    = v:false
+  while idx < len
+    let arg = a:args[idx]
+    if arg == "-A"
+      if len >= idx + 2
+	call extend(nix_args, ["-A", a:args[idx + 1]])
+	call extend(remove, [idx, idx + 1])
+	let idx += 2
+	continue
+      else
+	call extend(nix_args, ["-A"])
+	call extend(remove, [idx])
+	break
+      endif
+    elseif arg == "--pure"
+      call add(nix_args, "--pure")
+      call add(remove, idx)
+      let idx += 1
+      continue
+    elseif arg == "--arg"
+      if len >= idx + 3
+	call extend(nix_args, ["--arg", a:args[idx+1], a:args[idx+2]])
+	call extend(remove, [idx, idx + 1, idx + 2])
+	let idx += 3
+	continue
+      elseif len >= idx + 2
+	call extend(nix_args, ["--arg", a:args[idx+1]])
+	call extend(remove, [idx, idx + 1])
+	let idx += 2
+	break
+      else
+	call extend(nix_args, ["--arg"])
+	call extend(remove, [idx])
+	let idx += 1
+	break
+      endif
+    elseif arg == "--argstr"
+      if len >= idx + 3
+	call extend(nix_args, ["--argstr", a:args[idx+1], a:args[idx+2]])
+	call extend(remove, [idx, idx + 1, idx + 2])
+	let idx += 3
+	continue
+      elseif len >= idx + 2
+	call extend(nix_args, ["--argstr", a:args[idx+1]])
+	call extend(remove, [idx, idx + 1])
+	let idx += 2
+	break
+      elseif len >= idx + 1
+	call extend(nix_args, ["--argstr"])
+	call extend(remove, [idx])
+	let idx += 1
+	break
+      endif
+    endif
+    let idx += 1
+  endwhile
+
+  for idx in reverse(remove)
     call remove(a:args, idx)
+  endfor
+
+  let nixfile = expand(nixfile)
+  if !filereadable(nixfile)
+    let nixfile = ""
   endif
-  while index(a:args, "--arg") >= 0
-    let idx = index(a:args, "--arg")
-    call extend(nix_args, ["--arg", a:args[idx+1], a:args[idx+2]])
-    call remove(a:args, idx, idx + 2)
-  endwhile
-  while index(a:args, "--argstr") >= 0
-    call extend(nix_args, ["--argstr", a:args[idx+1], a:args[idx+2]])
-    call remove(a:args, idx, idx + 2)
-  endwhile
   return [nixfile, nix_args]
 endfun
 
 " Open a nix-shell or a run a command in a nix shell
 fun! s:NixTerm(bang, vertical, args)
-  let [nixfile,   nix_args] = s:NixArgs(a:args)
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let [nixfile,   nix_args] = s:NixArgs(term_cmd)
   let term_winnr            = s:TermWin(term_args)
   let term_opts		    = {"vertical": a:vertical}
   if empty(term_cmd)
@@ -314,7 +381,8 @@ fun! s:NixTerm(bang, vertical, args)
     call add(nix_cmd, "--run")
     call extend(nix_cmd, term_cmd)
   endif
-  call s:Terminal(a:bang, v:false, term_winnr, term_opts, nix_cmd)
+  let term_bang = !empty(term_cmd) ? "" : "!"
+  call s:Terminal(term_bang, v:false, term_winnr, term_opts, nix_cmd)
 endfun
 
 if exists("g:terminal_nix_term")

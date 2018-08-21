@@ -17,6 +17,10 @@ arguments (this is how <f-args> works).
 		      this value is persistent per buffer (stored in
 		      `b:term_rows` the default value is `16`.
 
+	When listing terminals the following info is displayed: buffer number,
+	abreviated status "r" for "running", "n" for "normalmode" and "f" for
+	"finished", command (might be abbreviated) and title.
+
 	Examples: >
 	  :Term ++termwin ls
 	  :Term ++hidden firefox %:r.html
