@@ -76,9 +76,12 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(bang, term_bufs, jump_one, vertical, termwin, cterm_win)
+fun! s:ListTerms(bang, term_bufs, jump_one, winnr, vertical, termwin)
   if len(a:term_bufs) == 0
     return
+    if a:winnr
+      wincmd p
+    endif
   endif
   if a:jump_one && len(a:term_bufs) == 1
     let idx = 1
@@ -103,6 +106,9 @@ fun! s:ListTerms(bang, term_bufs, jump_one, vertical, termwin, cterm_win)
 	  \ )}))
   endif
   if idx == 0 || idx > len(a:term_bufs)
+    if a:winnr
+      wincmd p
+    endif
     return
   endif
   let term = a:term_bufs[idx-1]
@@ -122,7 +128,7 @@ fun! s:ListTerms(bang, term_bufs, jump_one, vertical, termwin, cterm_win)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang) && !a:cterm_win
+  if empty(a:bang) && a:winnr
     " jump back
     wincmd p
   endif
@@ -162,9 +168,11 @@ fun! s:TermWin(term_args)
     if !empty(win)
       let term_win = v:true
       let term_winnr = win.winnr
-      let winnr = winnr()
-      call add(a:term_args, "++curwin")
-      exe term_winnr . "wincmd w"
+      if win.winnr != winnr
+	let winnr = winnr()
+	call add(a:term_args, "++curwin")
+	exe term_winnr . "wincmd w"
+      endif
     endif
   endif
   let idx = index(a:term_args, "++nokill")
@@ -225,8 +233,7 @@ endfun
 " a:winnr      - non v:null iff we jumped to termwin (in s:TermWin)
 " a:term_opts  - terminal optsion
 " a:term_cmd   - terminal command
-" a:cterm_win  - v:true iff we started from a terminal window
-fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd, cterm_win)
+fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
   try
     let term_bufnr = term_start(a:term_cmd, a:term_opts)
   catch /.*/
@@ -252,7 +259,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd, cterm_win)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang) && !a:cterm_win
+  if empty(a:bang) && !a:winnr
     " jump back
     wincmd p
   endif
@@ -260,7 +267,6 @@ endfun
 
 " Run a shell.
 fun! s:Shell(bang, vertical, args)
-  let cterm_win	= &buftype == "terminal"
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
@@ -273,9 +279,9 @@ fun! s:Shell(bang, vertical, args)
     let term_args = s:SplitTermArgs(args)[0]
     let winnr     = s:TermWin(term_args)
     let term_opts = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
-    return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)), cterm_win)
+    return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)))
   else
-    call s:ListTerms("!", term_bufs, v:true, a:vertical, index(args, "++termwin") != -1, cterm_win)
+    call s:ListTerms("!", term_bufs, v:true, v:null, a:vertical, index(args, "++termwin") != -1)
   endif
 endfun
 
@@ -284,7 +290,6 @@ com! -bang -nargs=* VShell call s:Shell(<q-bang>, v:true,  <q-args>)
 
 " Run a command in a termianl.
 fun! s:Term(bang, vertical, args)
-  let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if index(term_args, "++notermwin") == -1 && index(term_args, "++termwin") == -1
@@ -295,9 +300,9 @@ fun! s:Term(bang, vertical, args)
   let term_opts		    = {"vertical": a:vertical}
   let term_opts		    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
   if len(term_cmd)
-    call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd, cterm_win)
+    call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd)
   else
-    call s:ListTerms(a:bang, s:TermBufs(v:true), v:false, a:vertical, !empty(winnr), cterm_win)
+    call s:ListTerms(a:bang, s:TermBufs(v:true), v:false, winnr, a:vertical, !empty(winnr))
   endif
 endfun
 
@@ -410,7 +415,7 @@ fun! s:NixTerm(bang, vertical, args)
     call extend(nix_cmd, term_cmd)
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
-  call s:Terminal(term_bang, v:false, winnr, term_opts, nix_cmd, cterm_win)
+  call s:Terminal(term_bang, v:false, winnr, term_opts, nix_cmd)
 endfun
 
 if exists("g:vim_term_nixterm")
