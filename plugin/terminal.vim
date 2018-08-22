@@ -72,7 +72,7 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(bang, term_bufs, jump_one, vertical, termwin)
+fun! s:ListTerms(bang, term_bufs, jump_one, vertical, termwin, cterm_win)
   if len(a:term_bufs) == 0
     return
   endif
@@ -118,7 +118,7 @@ fun! s:ListTerms(bang, term_bufs, jump_one, vertical, termwin)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang)
+  if empty(a:bang) && !a:cterm_win
     " jump back
     wincmd p
   endif
@@ -216,7 +216,13 @@ fun! s:TermArgsToTermOpts(term_args, term_opts, term_win)
 endfun
 
 " Low level wrapper around `:terminal` command.
-fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
+" a:bang       - if not set jump back to the original window
+" a:term_shell - v:true if we run a shell
+" a:winnr      - non v:null iff we jumped to termwin (in s:TermWin)
+" a:term_opts  - terminal optsion
+" a:term_cmd   - terminal command
+" a:cterm_win  - v:true iff we started from a terminal window
+fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd, cterm_win)
   try
     let term_bufnr = term_start(a:term_cmd, a:term_opts)
   catch /.*/
@@ -242,7 +248,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang)
+  if empty(a:bang) && !a:cterm_win
     " jump back
     wincmd p
   endif
@@ -250,19 +256,20 @@ endfun
 
 " Run a shell.
 fun! s:Shell(bang, vertical, args)
+  let cterm_win	= &buftype == "terminal"
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
   if a:bang == "!" || empty(term_bufs)
-    let term_args = s:SplitTermArgs(a:args)[0]
+    let term_args = s:SplitTermArgs(args)[0]
     if index(term_args, "++notermwin") == -1
       call add(term_args, "++termwin")
     endif
     let winnr     = s:TermWin(term_args)
     let term_opts = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
     let term_opts = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
-    return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)))
+    return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)), cterm_win)
   else
-    call s:ListTerms("!", term_bufs, v:true, a:vertical, index(args, "++termwin") != -1)
+    call s:ListTerms("!", term_bufs, v:true, a:vertical, index(args, "++termwin") != -1, cterm_win)
   endif
 endfun
 
@@ -271,14 +278,15 @@ com! -bang -nargs=* VShell call s:Shell(<q-bang>, v:true,  <q-args>)
 
 " Run a command in a termianl.
 fun! s:Term(bang, vertical, args)
+  let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   let winnr                 = s:TermWin(term_args)
   let term_opts		    = {"vertical": a:vertical}
   let term_opts		    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
   if len(term_cmd)
-    call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd)
+    call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd, cterm_win)
   else
-    call s:ListTerms(a:bang, s:TermBufs(v:true), v:false, a:vertical, !empty(winnr))
+    call s:ListTerms(a:bang, s:TermBufs(v:true), v:false, a:vertical, !empty(winnr), cterm_win)
   endif
 endfun
 
@@ -370,6 +378,7 @@ endfun
 
 " Open a nix-shell or a run a command in a nix shell
 fun! s:NixTerm(bang, vertical, args)
+  let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   let [nixfile,   nix_args] = s:NixArgs(term_cmd)
   let winnr                 = s:TermWin(term_args)
@@ -390,7 +399,7 @@ fun! s:NixTerm(bang, vertical, args)
     call extend(nix_cmd, term_cmd)
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
-  call s:Terminal(term_bang, v:false, winnr, term_opts, nix_cmd)
+  call s:Terminal(term_bang, v:false, winnr, term_opts, nix_cmd, cterm_win)
 endfun
 
 if exists("g:terminal_nix_term")
