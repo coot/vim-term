@@ -36,7 +36,7 @@ arguments (this is how <f-args> works).
 	[options] can be any `:Term` option or any nix-shell flag, e.g. >
 	    :NixShell -A default --arg test true
 <
-	It is only defined if you set `g:terminal_nix_term` varaible to any
+	It is only defined if you set `g:vim_term_nixterm` varaible to any
 	value.
 
 	Note that the command you want run must be quoted.
@@ -45,3 +45,8 @@ arguments (this is how <f-args> works).
 	  :NixTerm
 	  :NixTerm -A arg --arg dev true "ghcid -c 'cabal new-repl'"
 <
+
+						    *g:vim_term_termwin*
+*g:vim_term_termwin* if set to |v:true| (default |v:false|) then all the
+commands will behave as ++termwin was passed to them by default (re-using the
+current terminal window).  You can use then ++notermwin to open in a new window.

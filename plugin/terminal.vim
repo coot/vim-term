@@ -1,3 +1,7 @@
+if !exists("g:vim_term_termwin")
+  let g:vim_term_termwin = v:false
+endif
+
 fun! s:ShellParse(arg, ...)
   let arg = substitute(a:arg, '++\(\w\+\)\s*=\s*', '++\1=', 'g')
 if has("pythonx")
@@ -259,13 +263,15 @@ fun! s:Shell(bang, vertical, args)
   let cterm_win	= &buftype == "terminal"
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
-  if a:bang == "!" || empty(term_bufs)
-    let term_args = s:SplitTermArgs(args)[0]
-    if index(term_args, "++notermwin") == -1
-      call add(term_args, "++termwin")
+  if exists("g:vim_term_termwin") && g:vim_term_termwin
+    if index(args, "++notermwin") == -1 && index(args, "++termwin") == -1
+      call add(args, "++termwin")
     endif
-    let winnr     = s:TermWin(term_args)
+  endif
+  if a:bang == "!" || empty(term_bufs)
     let term_opts = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
+    let term_args = s:SplitTermArgs(args)[0]
+    let winnr     = s:TermWin(term_args)
     let term_opts = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)), cterm_win)
   else
@@ -280,6 +286,11 @@ com! -bang -nargs=* VShell call s:Shell(<q-bang>, v:true,  <q-args>)
 fun! s:Term(bang, vertical, args)
   let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  if exists("g:vim_term_termwin") && g:vim_term_termwin
+    if index(term_args, "++notermwin") == -1 && index(term_args, "++termwin") == -1
+      call add(term_args, "++termwin")
+    endif
+  endif
   let winnr                 = s:TermWin(term_args)
   let term_opts		    = {"vertical": a:vertical}
   let term_opts		    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
@@ -402,7 +413,7 @@ fun! s:NixTerm(bang, vertical, args)
   call s:Terminal(term_bang, v:false, winnr, term_opts, nix_cmd, cterm_win)
 endfun
 
-if exists("g:terminal_nix_term")
+if exists("g:vim_term_nixterm")
   com! -bang -nargs=* -complete=file NixTerm  :call s:NixTerm(<q-bang>, v:false, s:ShellParse(<q-args>, <f-args>))
   com! -bang -nargs=* -complete=file VNixTerm :call s:NixTerm(<q-bang>, v:true,  s:ShellParse(<q-args>, <f-args>))
 endif
