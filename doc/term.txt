@@ -11,11 +11,14 @@ arguments (this is how <f-args> works).
 :Term [options] [args]
 	if no args are given list terminals, otherwise run the command [args].
 	[options] can be any `:terminal` option plus one of
+	++dir	      pass current working directory to |term_start|
 	++termwin     reuse terminal window (if already opened)
 	++nokill      do not kill (by default `++kill=kill`is passed)
 	++rows=n      use that meany rows (for both window and the terminal),
 		      this value is persistent per buffer (stored in
 		      `b:term_rows` the default value is `16`.
+	++ls	      Force showing all terminals and shells (even if there's
+		      only one).
 
 	When listing terminals the following info is displayed: buffer number,
 	abreviated status "r" for "running", "n" for "normalmode" and "f" for
@@ -28,7 +31,8 @@ arguments (this is how <f-args> works).
 
 						    *:Shell*
 :Shell [options]
-	Open a shell, [options] are like the same as for `:Term` command.
+	Open a shell, [options] are like the same as for `:Term` command
+	(except ++ls which is ignored).
 
 						    *:NixTerm*
 :NixTerm [options] [args]
