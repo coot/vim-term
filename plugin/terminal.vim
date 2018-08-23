@@ -70,7 +70,7 @@ endfun
 " Returns a list of terminal buffers, if term_shell is false include only
 " shells.
 fun! s:TermBufs(term_shell)
-  return filter(map(sort(term_list(), 'n'), {key, bufnr -> getbufinfo(bufnr)[0]}), {key, val -> (a:term_shell || getbufvar(val.bufnr, "term_shell") == v:true)})
+  return filter(map(sort(term_list(), 'n'), {key, bufnr -> getbufinfo(bufnr)[0]}), {key, val -> getbufvar(val.bufnr, "term_shell") != a:term_shell})
 endfun
 
 " todo:
@@ -297,12 +297,16 @@ fun! s:Term(bang, vertical, args)
     endif
   endif
   let winnr                 = s:TermWin(term_args)
-  let term_opts		    = {"vertical": a:vertical}
-  let term_opts		    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
-  if len(term_cmd)
+  let term_opts		    = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical}, !empty(winnr))
+  let list_terms	    = index(term_cmd, "++ls") >= 0
+  if len(term_cmd) && !list_terms
     call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd)
   else
-    call s:ListTerms(a:bang, s:TermBufs(v:true), v:false, winnr, a:vertical, !empty(winnr))
+    if list_terms
+      call s:ListTerms(a:bang, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, a:vertical, !empty(winnr))
+    else
+      call s:ListTerms(a:bang, s:TermBufs(v:true), v:true, winnr, a:vertical, !empty(winnr))
+    endif
   endif
 endfun
 
