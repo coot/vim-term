@@ -36,7 +36,7 @@ fun! s:FindTermWin()
 endfun
 
 fun! s:IsShellArg(arg)
-  if index(['++close', '++nokill', '++noclose', '++open', '++curwin', '++hidden', '++rows', '++cols', '++eof', '++norestore', '++kill'], a:arg[0]) != -1
+  if index(['++close', '++nokill', '++noclose', '++open', '++curwin', '++hidden', '++rows', '++cols', '++eof', '++norestore', '++kill', '++cwd'], a:arg[0]) != -1
     return v:true
   else
     return v:false
@@ -220,6 +220,8 @@ fun! s:TermArgsToTermOpts(term_args, term_opts, term_win)
       let val = "open"
     elseif arg[0] == "++nokill"
       let val = "term"
+    elseif arg[0] == "++cwd"
+      let val = expand(arg[1])
     endif
     
     let a:term_opts[s:TermArgMap(arg[0])] = val
