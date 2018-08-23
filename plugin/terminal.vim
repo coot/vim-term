@@ -76,7 +76,7 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(bang, term_bufs, jump_one, winnr, vertical, termwin)
+fun! s:ListTerms(bang, term_bufs, jump_one, winnr, win, vertical, termwin)
   if len(a:term_bufs) == 0
     return
     if a:winnr
@@ -86,12 +86,12 @@ fun! s:ListTerms(bang, term_bufs, jump_one, winnr, vertical, termwin)
   if a:jump_one && len(a:term_bufs) == 1
     let idx = 1
   else
-    echohl Title
     let n  = max(map(copy(a:term_bufs), {idx, buf -> len(join(job_info(term_getjob(buf.bufnr))['cmd'], ' '))}))
     let mt = 16 + n + max(map(copy(a:term_bufs), {idx, buf -> len(term_gettitle(buf.bufnr)) + 2}))
     if mt > &co
       let n = max([max(map(copy(a:term_bufs), {idx, buf -> len(bufname(buf.bufnr))})), 10])
     endif
+    echohl Title
     echo printf("%s %s %s %s %s", "idx", "bufnr", "st", s:LeftAlign("cmd", n), "title")
     echohl Normal
     let idx = inputlist(map(copy(a:term_bufs), {idx, buf -> printf(
@@ -112,9 +112,8 @@ fun! s:ListTerms(bang, term_bufs, jump_one, winnr, vertical, termwin)
     return
   endif
   let term = a:term_bufs[idx-1]
-  let win  = s:FindTermWin()
-  if a:termwin && !empty(win)
-    exe win.winnr . "wincmd w"
+  if a:termwin && !empty(a:win)
+    exe a:win.winnr . "wincmd w"
     exe "b " . term.bufnr
     setl buftype=terminal
   else
@@ -128,7 +127,7 @@ fun! s:ListTerms(bang, term_bufs, jump_one, winnr, vertical, termwin)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang) && a:winnr
+  if empty(a:bang) && a:winnr != a:win.winnr
     " jump back
     wincmd p
   endif
@@ -158,20 +157,17 @@ fun! s:TermArgMap(name)
 endfun
 
 fun! s:TermWin(term_args)
-  let term_win   = index(a:term_args, "++termwin") >= 0
-  let winnr      = v:null
-  if term_win
-    let term_win   = v:false
+  let winnr = v:null
+  let win   = {}
+  if index(a:term_args, "++termwin") >= 0
     call filter(a:term_args, {key, arg -> split(arg, '\s*=\s*')[0] != "++termwin"})
     let winnr      = v:null
     let win        = s:FindTermWin()
     if !empty(win)
-      let term_win = v:true
-      let term_winnr = win.winnr
       if win.winnr != winnr
 	let winnr = winnr()
 	call add(a:term_args, "++curwin")
-	exe term_winnr . "wincmd w"
+	exe win.winnr . "wincmd w"
       endif
     endif
   endif
@@ -181,7 +177,7 @@ fun! s:TermWin(term_args)
   else
     call remove(a:term_args, idx)
   endif
-  return winnr
+  return [winnr, win]
 endfun
 
 " Split terminal arguments from the command arguments.
@@ -277,13 +273,14 @@ fun! s:Shell(bang, vertical, args)
     endif
   endif
   if a:bang == "!" || empty(term_bufs)
-    let term_opts = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
-    let term_args = s:SplitTermArgs(args)[0]
-    let winnr     = s:TermWin(term_args)
-    let term_opts = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
+    let term_opts    = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
+    let term_args    = s:SplitTermArgs(args)[0]
+    let [winnr, win] = s:TermWin(term_args)
+    let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)))
   else
-    call s:ListTerms("!", term_bufs, v:true, v:null, a:vertical, index(args, "++termwin") != -1)
+    let win = s:FindTermWin()
+    call s:ListTerms("!", term_bufs, v:true, v:null, win, a:vertical, index(args, "++termwin") != -1)
   endif
 endfun
 
@@ -298,16 +295,16 @@ fun! s:Term(bang, vertical, args)
       call add(term_args, "++termwin")
     endif
   endif
-  let winnr                 = s:TermWin(term_args)
-  let term_opts		    = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical}, !empty(winnr))
-  let list_terms	    = index(term_cmd, "++ls") >= 0
+  let [winnr, win] = s:TermWin(term_args)
+  let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical}, !empty(winnr))
+  let list_terms   = index(term_cmd, "++ls") >= 0
   if len(term_cmd) && !list_terms
     call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd)
   else
     if list_terms
-      call s:ListTerms(a:bang, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, a:vertical, !empty(winnr))
+      call s:ListTerms(a:bang, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr))
     else
-      call s:ListTerms(a:bang, s:TermBufs(v:true), v:true, winnr, a:vertical, !empty(winnr))
+      call s:ListTerms(a:bang, s:TermBufs(v:true), v:true, winnr, win, a:vertical, !empty(winnr))
     endif
   endif
 endfun
