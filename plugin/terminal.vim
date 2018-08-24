@@ -127,7 +127,7 @@ fun! s:ListTerms(bang, term_bufs, jump_one, winnr, win, vertical, termwin)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang) && a:winnr != a:win.winnr
+  if empty(a:bang) && (empty(a:win) || a:winnr != get(a:win, "winnr"))
     " jump back
     wincmd p
   endif
@@ -257,7 +257,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang) && !a:winnr
+  if empty(a:bang) && a:winnr != winnr()
     " jump back
     wincmd p
   endif
@@ -268,7 +268,7 @@ fun! s:Shell(bang, vertical, args)
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
-    if index(args, "++notermwin") == -1 && index(args, "++termwin") == -1
+    if index(args, "++notermwin") == -1 && index(args, "++termwin") == -1 && index(args, "++hidden") == -1
       call add(args, "++termwin")
     endif
   endif
@@ -400,7 +400,7 @@ fun! s:NixTerm(bang, vertical, args)
   let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   let [nixfile,   nix_args] = s:NixArgs(term_cmd)
-  let winnr                 = s:TermWin(term_args)
+  let [winnr, win]          = s:TermWin(term_args)
   let term_opts		    = {"vertical": a:vertical}
   if empty(term_cmd)
     let term_opts["term_finish"] = "close"
@@ -418,7 +418,7 @@ fun! s:NixTerm(bang, vertical, args)
     call extend(nix_cmd, term_cmd)
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
-  call s:Terminal(term_bang, v:false, winnr, term_opts, nix_cmd)
+  call s:Terminal(term_bang, empty(term_cmd), winnr, term_opts, nix_cmd)
 endfun
 
 if exists("g:vim_term_nixterm")
