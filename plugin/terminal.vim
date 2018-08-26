@@ -76,7 +76,7 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(bang, term_bufs, jump_one, winnr, win, vertical, termwin)
+fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin)
   if len(a:term_bufs) == 0
     return
     if a:winnr
@@ -85,6 +85,8 @@ fun! s:ListTerms(bang, term_bufs, jump_one, winnr, win, vertical, termwin)
   endif
   if a:jump_one && len(a:term_bufs) == 1
     let idx = 1
+  elseif a:count >= 1 && a:count <= len(a:term_bufs)
+    let idx = a:count
   else
     let n  = max(map(copy(a:term_bufs), {idx, buf -> len(join(job_info(term_getjob(buf.bufnr))['cmd'], ' '))}))
     let mt = 16 + n + max(map(copy(a:term_bufs), {idx, buf -> len(term_gettitle(buf.bufnr)) + 2}))
@@ -264,7 +266,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
 endfun
 
 " Run a shell.
-fun! s:Shell(bang, vertical, args)
+fun! s:Shell(bang, count, vertical, args)
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
@@ -280,15 +282,15 @@ fun! s:Shell(bang, vertical, args)
     return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)))
   else
     let win = s:FindTermWin()
-    call s:ListTerms("!", term_bufs, v:true, v:null, win, a:vertical, index(args, "++termwin") != -1)
+    call s:ListTerms("!", a:count, term_bufs, v:true, v:null, win, a:vertical, index(args, "++termwin") != -1)
   endif
 endfun
 
-com! -bang -nargs=* Shell  call s:Shell(<q-bang>, v:false, <q-args>)
-com! -bang -nargs=* VShell call s:Shell(<q-bang>, v:true,  <q-args>)
+com! -bang -count=0 -nargs=* Shell  call s:Shell(<q-bang>, <count>, v:false, <q-args>)
+com! -bang -count=0 -nargs=* VShell call s:Shell(<q-bang>, <count>, v:true,  <q-args>)
 
 " Run a command in a termianl.
-fun! s:Term(bang, vertical, args)
+fun! s:Term(bang, count, vertical, args)
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
@@ -302,15 +304,15 @@ fun! s:Term(bang, vertical, args)
     call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd)
   else
     if list_terms
-      call s:ListTerms(a:bang, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr))
+      call s:ListTerms(a:bang, a:count, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr))
     else
-      call s:ListTerms(a:bang, s:TermBufs(v:true), v:true, winnr, win, a:vertical, !empty(winnr))
+      call s:ListTerms(a:bang, a:count, s:TermBufs(v:true), v:true, winnr, win, a:vertical, !empty(winnr))
     endif
   endif
 endfun
 
-com! -bang -nargs=* -complete=file Term  :call s:Term(<q-bang>, v:false, s:ShellParse(<q-args>, <f-args>))
-com! -bang -nargs=* -complete=file VTerm :call s:Term(<q-bang>, v:true,  s:ShellParse(<q-args>, <f-args>))
+com! -bang -nargs=* -complete=file Term  :call s:Term(<q-bang>, <count>, v:false, s:ShellParse(<q-args>, <f-args>))
+com! -bang -nargs=* -complete=file VTerm :call s:Term(<q-bang>, <count>, v:true,  s:ShellParse(<q-args>, <f-args>))
 
 fun! s:NixArgs(args)
   let nixfile = ""
@@ -396,6 +398,7 @@ fun! s:NixArgs(args)
 endfun
 
 " Open a nix-shell or a run a command in a nix shell
+" TODO: list nix terminals
 fun! s:NixTerm(bang, vertical, args)
   let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
