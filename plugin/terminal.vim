@@ -268,7 +268,7 @@ fun! s:Shell(bang, vertical, args)
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
-    if index(args, "++notermwin") == -1 && index(args, "++termwin") == -1 && index(args, "++hidden") == -1
+    if empty(filter(copy(args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
       call add(args, "++termwin")
     endif
   endif
@@ -291,7 +291,7 @@ com! -bang -nargs=* VShell call s:Shell(<q-bang>, v:true,  <q-args>)
 fun! s:Term(bang, vertical, args)
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
-    if index(term_args, "++notermwin") == -1 && index(term_args, "++termwin") == -1
+    if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
       call add(term_args, "++termwin")
     endif
   endif
