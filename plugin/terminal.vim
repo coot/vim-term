@@ -326,59 +326,42 @@ fun! s:NixArgs(args)
   let len = len(a:args)
 
   " nix-shell options
+  " everything except `--run` or `--command` arguments
   let nix_args = []
   let idx = 0
   let remove   = []
   let break    = v:false
   while idx < len
     let arg = a:args[idx]
-    if arg == "-A"
+    if index(["-A", "--attr", "--expr", "-E", "-I", "-p", "--package", "--exclude", "--max-jobs"], arg) != -1
       if len >= idx + 2
-	call extend(nix_args, ["-A", a:args[idx + 1]])
+	call extend(nix_args, [arg, a:args[idx + 1]])
 	call extend(remove, [idx, idx + 1])
 	let idx += 2
 	continue
       else
-	call extend(nix_args, ["-A"])
-	call extend(remove, [idx])
-	break
+	call add(nix_args, arg)
+	call add(remove, idx)
       endif
-    elseif arg == "--pure"
-      call add(nix_args, "--pure")
+    elseif index(["--pure", "--version", "--verbose", "-v", "--help", "--no-build-output", "-Q", "--timeout", "--cores", "--max-silent-time", "-k", "--keep-going", "--keep-failed", "-K", "--fallback", "--no-build-hook", "--readonly-mode", "--repair"], arg) != -1
+      call add(nix_args, arg)
       call add(remove, idx)
       let idx += 1
       continue
-    elseif arg == "--arg"
+    elseif index(["--arg", "--argstr", "--option"], arg) != -1
       if len >= idx + 3
-	call extend(nix_args, ["--arg", a:args[idx+1], a:args[idx+2]])
+	call extend(nix_args, [arg, a:args[idx+1], a:args[idx+2]])
 	call extend(remove, [idx, idx + 1, idx + 2])
 	let idx += 3
 	continue
       elseif len >= idx + 2
-	call extend(nix_args, ["--arg", a:args[idx+1]])
+	call extend(nix_args, [arg, a:args[idx+1]])
 	call extend(remove, [idx, idx + 1])
 	let idx += 2
 	break
       else
-	call extend(nix_args, ["--arg"])
-	call extend(remove, [idx])
-	let idx += 1
-	break
-      endif
-    elseif arg == "--argstr"
-      if len >= idx + 3
-	call extend(nix_args, ["--argstr", a:args[idx+1], a:args[idx+2]])
-	call extend(remove, [idx, idx + 1, idx + 2])
-	let idx += 3
-	continue
-      elseif len >= idx + 2
-	call extend(nix_args, ["--argstr", a:args[idx+1]])
-	call extend(remove, [idx, idx + 1])
-	let idx += 2
-	break
-      elseif len >= idx + 1
-	call extend(nix_args, ["--argstr"])
-	call extend(remove, [idx])
+	call add(nix_args, arg)
+	call add(remove, idx)
 	let idx += 1
 	break
       endif
