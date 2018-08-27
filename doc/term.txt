@@ -53,6 +53,9 @@ arguments (this is how <f-args> works).
 
 	Note that the command you want run must be quoted.
 
+	You can define *g:vim_term_nix_shell* as the default command to run
+	when you run |:NixTerm| it will be passed along with `--run`
+
 	Examples: >
 	  :NixTerm
 	  :NixTerm -A arg --arg dev true "ghcid -c 'cabal new-repl'"

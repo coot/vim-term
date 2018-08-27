@@ -414,11 +414,20 @@ fun! s:NixTerm(bang, vertical, args)
     call add(nix_cmd, nixfile)
   endif
   call extend(nix_cmd, nix_args)
+  let is_pure = index(nix_args, "--pure") != -1
   if len(term_cmd)
     if index(term_cmd, "--run") == -1 && index(term_cmd, "--command") == -1
       call add(nix_cmd, "--run")
+      if exists("g:vim_term_nix_shell") && !is_pure
+	call add(nix_cmd, g:vim_term_nix_shell)
+      endif
     endif
     call extend(nix_cmd, term_cmd)
+  else
+    if exists("g:vim_term_nix_shell") && !is_pure
+      call add(nix_cmd, "--run")
+      call add(nix_cmd, g:vim_term_nix_shell)
+    endif
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
   call s:Terminal(term_bang, empty(term_cmd), winnr, term_opts, nix_cmd)
