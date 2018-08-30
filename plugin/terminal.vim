@@ -381,10 +381,14 @@ fun! s:NixArgs(args)
 endfun
 
 " Open a nix-shell or a run a command in a nix shell
-" TODO: list nix terminals
 fun! s:NixTerm(bang, vertical, args)
   let cterm_win		    = &buftype == "terminal"
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  if exists("g:vim_term_termwin") && g:vim_term_termwin
+    if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
+      call add(term_args, "++termwin")
+    endif
+  endif
   let [nixfile,   nix_args] = s:NixArgs(term_cmd)
   let [winnr, win]          = s:TermWin(term_args)
   let term_opts		    = {"vertical": a:vertical}
@@ -401,11 +405,10 @@ fun! s:NixTerm(bang, vertical, args)
   if len(term_cmd)
     if index(term_cmd, "--run") == -1 && index(term_cmd, "--command") == -1
       call add(nix_cmd, "--run")
-      if exists("g:vim_term_nix_shell") && !is_pure
-	call add(nix_cmd, g:vim_term_nix_shell)
-      endif
+      call add(nix_cmd, join(term_cmd, ' '))
+    else
+      call extend(nix_cmd, term_cmd)
     endif
-    call extend(nix_cmd, term_cmd)
   else
     if exists("g:vim_term_nix_shell") && !is_pure
       call add(nix_cmd, "--run")
