@@ -8,8 +8,11 @@ if has("pythonx")
 pythonx << EOF
 import vim
 import shlex
-arg = vim.eval('arg')
-vim.command("let ret=%s" % shlex.split(arg))
+try:
+  ret = shlex.split(vim.eval('arg'))
+except ValueError as err:
+  ret = []
+vim.command("let ret=%s" % ret)
 EOF
   return ret
 else
@@ -17,11 +20,21 @@ else
 endif
 endfun
 
-fun! s:ShellJoin(args)
+fun! s:ShellQuote(args)
 if has("pythonx")
-  return join(map(a:args, {idx, val -> escape(val, ' ')}))
+pythonx << EOF
+import vim
+import shlex
+
+args = " ".join(map(shlex.quote, vim.eval('a:args')))
+print(args)
+# TODO: this will fail if args contains a "
+vim.command("let ret=\"%s\"" % args)
+EOF
+  return ret
 else
-  return join(a:args)
+  " TODO: escape parts
+  return join(a:args, " ")
 endif
 endfun
 
@@ -410,7 +423,7 @@ fun! s:NixTerm(bang, vertical, args)
   if len(term_cmd)
     if index(term_cmd, "--run") == -1 && index(term_cmd, "--command") == -1
       call add(nix_cmd, "--run")
-      call add(nix_cmd, join(term_cmd, ' '))
+      call add(nix_cmd, s:ShellQuote(term_cmd))
     else
       call extend(nix_cmd, term_cmd)
     endif
