@@ -111,7 +111,7 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
   endif
   if idx == 0 || idx > len(a:term_bufs)
     if a:winnr
-      wincmd p
+      exe a:winnr . "wincmd w"
     endif
     return
   endif
