@@ -35,6 +35,7 @@ fun! s:FindTermWin()
   return {}
 endfun
 
+" arguments of the original :terminal command
 fun! s:IsShellArg(arg)
   if index(['++close', '++nokill', '++noclose', '++open', '++curwin', '++hidden', '++rows', '++cols', '++eof', '++norestore', '++kill', '++cwd'], a:arg[0]) != -1
     return v:true
@@ -43,8 +44,9 @@ fun! s:IsShellArg(arg)
   endif
 endfun
 
+" also extra arguments
 fun! s:IsTermArg(arg)
-  if s:IsShellArg(a:arg) || index(['++termwin', '++notermwin', '++nokill'], a:arg[0]) != -1
+  if s:IsShellArg(a:arg) || index(['++termwin', '++notermwin', '++nokill', '++shell'], a:arg[0]) != -1
     return v:true
   else
     return v:false
@@ -128,6 +130,7 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
     if !a:vertical && b:term_rows != v:null
       exe "resize" . b:term_rows
     endif
+    redraw!
   endif
   if empty(a:bang) && (empty(a:win) || a:winnr != get(a:win, "winnr"))
     " jump back
@@ -263,6 +266,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
     " jump back
     wincmd p
   endif
+  redraw!
 endfun
 
 " Run a shell.
@@ -270,7 +274,7 @@ fun! s:Shell(bang, count, vertical, args)
   let term_bufs = s:TermBufs(v:false)
   let args      = split(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
-    if empty(filter(copy(args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
+    if empty(filter(copy(args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(args, "++termwin")
     endif
   endif
@@ -300,8 +304,9 @@ fun! s:Term(bang, count, vertical, args)
   let [winnr, win] = s:TermWin(term_args)
   let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical}, !empty(winnr))
   let list_terms   = index(term_cmd, "++ls") >= 0
+  let term_shell   = v:false || index(term_args, '++shell') != -1
   if len(term_cmd) && !list_terms
-    call s:Terminal(a:bang, v:false, winnr, term_opts, term_cmd)
+    call s:Terminal(term_shell ? "!" : a:bang, term_shell, winnr, term_opts, term_cmd)
   else
     if list_terms
       call s:ListTerms(a:bang, a:count, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr))
@@ -311,8 +316,8 @@ fun! s:Term(bang, count, vertical, args)
   endif
 endfun
 
-com! -bang -nargs=* -complete=file Term  :call s:Term(<q-bang>, <count>, v:false, s:ShellParse(<q-args>, <f-args>))
-com! -bang -nargs=* -complete=file VTerm :call s:Term(<q-bang>, <count>, v:true,  s:ShellParse(<q-args>, <f-args>))
+com! -bang -count=0 -nargs=* -complete=file Term  :call s:Term(<q-bang>, <count>, v:false, s:ShellParse(<q-args>, <f-args>))
+com! -bang -count=0 -nargs=* -complete=file VTerm :call s:Term(<q-bang>, <count>, v:true,  s:ShellParse(<q-args>, <f-args>))
 
 fun! s:NixArgs(args)
   let nixfile = ""
@@ -416,7 +421,8 @@ fun! s:NixTerm(bang, vertical, args)
     endif
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
-  call s:Terminal(term_bang, empty(term_cmd), winnr, term_opts, nix_cmd)
+  let term_shell = empty(term_cmd) || index(term_args, '++shell') != -1
+  call s:Terminal(term_bang, term_shell, winnr, term_opts, nix_cmd)
 endfun
 
 if exists("g:vim_term_nixterm")
