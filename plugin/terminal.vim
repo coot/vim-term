@@ -38,7 +38,10 @@ else
 endif
 endfun
 
-fun! s:FindTermWin()
+fun! s:FindTermWin(curwin)
+  if a:curwin
+    return winnr()
+  endif
   let tab = tabpagenr()
   for win in getwininfo()
     if win.terminal == 1 && win.tabnr == tab
@@ -91,7 +94,7 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin)
+fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin, term_opts, curwin)
   if len(a:term_bufs) == 0
     return
     if a:winnr
@@ -134,13 +137,17 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
     exe "b " . term.bufnr
     setl buftype=terminal
   else
-    exe (a:vertical ? "vertical" : "") . " sb ". term.bufnr
+    if a:curwin
+      exe "b " . term.bufnr
+    else
+      exe (a:vertical ? "vertical" : "") . " sb ". term.bufnr
+    endif
     setl buftype=terminal
     setl nonu nornu nospell wfh wfw
     if !exists("b:term_rows")
       let b:term_rows = 16
     endif
-    if !a:vertical && b:term_rows != v:null
+    if !a:vertical && b:term_rows != v:null && !a:curwin
       exe "resize" . b:term_rows
     endif
     redraw!
@@ -180,7 +187,7 @@ fun! s:TermWin(term_args)
   if index(a:term_args, "++termwin") >= 0
     call filter(a:term_args, {key, arg -> split(arg, '\s*=\s*')[0] != "++termwin"})
     let winnr      = v:null
-    let win        = s:FindTermWin()
+    let win        = s:FindTermWin(index(a:term_args, "++curwin") != -1)
     if !empty(win)
       if win.winnr != winnr
 	let winnr = winnr()
@@ -215,7 +222,7 @@ endfun
 " Map term args to terminal options, second argument is the set of default
 " terminal options.
 fun! s:TermArgsToTermOpts(term_args, term_opts, term_win)
-  if !get(a:term_opts, "vertical", v:false) && !a:term_win
+  if !get(a:term_opts, "vertical", v:false) && index(a:term_args, "++curwin") == -1
     let a:term_opts["term_rows"] = get(a:term_opts, "term_rows", 16)
   endif
   for arg in map(copy(a:term_args), {idx, val -> split(val, '\s*=\s*')})
@@ -298,8 +305,8 @@ fun! s:Shell(bang, count, vertical, args)
     let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, s:ShellParse(&shell, split(&shell)))
   else
-    let win = s:FindTermWin()
-    call s:ListTerms("!", a:count, term_bufs, v:true, v:null, win, a:vertical, index(args, "++termwin") != -1)
+    let win = s:FindTermWin(index(args, "++curwin") != -1)
+    call s:ListTerms("!", a:count, term_bufs, v:true, v:null, win, a:vertical, index(args, "++termwin") != -1, {}, index(args, "++curwin") != -1)
   endif
 endfun
 
@@ -310,7 +317,7 @@ com! -bang -count=0 -nargs=* VShell call s:Shell(<q-bang>, <count>, v:true,  <q-
 fun! s:Term(bang, count, vertical, args)
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   if exists("g:vim_term_termwin") && g:vim_term_termwin
-    if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
+    if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(term_args, "++termwin")
     endif
   endif
@@ -321,10 +328,11 @@ fun! s:Term(bang, count, vertical, args)
   if len(term_cmd) && !list_terms
     call s:Terminal(term_shell ? "!" : a:bang, term_shell, winnr, term_opts, term_cmd)
   else
+    let curwin = index(term_args, "++curwin") != -1
     if list_terms
-      call s:ListTerms(a:bang, a:count, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr))
+      call s:ListTerms(a:bang, a:count, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr), term_opts, curwin)
     else
-      call s:ListTerms(a:bang, a:count, s:TermBufs(v:true), v:true, winnr, win, a:vertical, !empty(winnr))
+      call s:ListTerms(a:bang, a:count, s:TermBufs(v:true), v:true, winnr, win, a:vertical, !empty(winnr), term_opts, curwin)
     endif
   endif
 endfun
