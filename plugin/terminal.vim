@@ -282,7 +282,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
       exe "resize" . b:term_rows
     endif
   endif
-  if empty(a:bang) && a:winnr != winnr()
+  if empty(a:bang) && a:winnr != winnr() && !curwin
     " jump back
     wincmd p
   endif
