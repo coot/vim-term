@@ -187,11 +187,14 @@ fun! s:TermWin(term_args)
   if index(a:term_args, "++termwin") >= 0
     call filter(a:term_args, {key, arg -> split(arg, '\s*=\s*')[0] != "++termwin"})
     let winnr      = v:null
-    let win        = s:FindTermWin(index(a:term_args, "++curwin") != -1)
+    let curwin     = index(a:term_args, "++curwin") != -1
+    let win        = s:FindTermWin(curwin)
     if !empty(win)
       if win.winnr != winnr
 	let winnr = winnr()
-	call add(a:term_args, "++curwin")
+	if !curwin
+	  call add(a:term_args, "++curwin")
+	endif
 	exe win.winnr . "wincmd w"
       endif
     endif
