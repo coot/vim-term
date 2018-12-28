@@ -67,6 +67,6 @@ arguments (this is how <f-args> works).
 <
 
 						    *g:vim_term_termwin*
-*g:vim_term_termwin* if set to |v:true| (default |v:false|) then all the
+|g:vim_term_termwin| if set to |v:true| (default |v:false|) then all the
 commands will behave as ++termwin was passed to them by default (re-using the
 current terminal window).  You can use then ++notermwin to open in a new window.
