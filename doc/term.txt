@@ -33,6 +33,11 @@ arguments (this is how <f-args> works).
 	more than one running.  Default value is 0, which means you will be
 	presented with a choice.
 
+	By default the command will run by an interactive 'shell'.  This
+	ensures that environment variables or aliases are expanded.  This can
+        be configured by g:vim_term_shell variable. On windows no shell is
+        used.
+
 	Examples: >
 	  :Term ++termwin ls
 	  :Term ++hidden firefox %:r.html

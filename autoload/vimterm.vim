@@ -204,6 +204,23 @@ fun! s:TermWin(term_args)
   return [winnr, win]
 endfun
 
+fun! s:ExpandTermArgs(args)
+  let args_ = []
+  for arg in a:args
+    if arg     == '++tw'
+      let arg = '++termwin'
+    elseif arg == '++notw'
+      let arg = '++notermwin'
+    elseif arg == '++cw'
+      let arg == '++curwin'
+    elseif arg == '++nocw'
+      let arg = '++nocurwin'
+    endif
+    call add(args_, arg)
+  endfor
+  return args_
+endfun
+
 " Split terminal arguments from the command arguments.
 fun! s:SplitTermArgs(args)
   let term_args = []
@@ -253,7 +270,7 @@ endfun
 " a:bang       - if not set jump back to the original window
 " a:term_shell - v:true if we run a shell
 " a:winnr      - non v:null iff we jumped to termwin (in s:TermWin)
-" a:term_opts  - terminal optsion
+" a:term_opts  - terminal options
 " a:term_cmd   - terminal command
 fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
   try
@@ -291,7 +308,7 @@ endfun
 " Run a shell.
 fun! vimterm#Shell(bang, count, vertical, args)
   let term_bufs = s:TermBufs(v:false)
-  let args      = split(a:args)
+  let args      = s:ExpandTermArgs(split(a:args))
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(args, "++termwin")
@@ -311,7 +328,10 @@ endfun
 
 " Run a command in a termianl.
 fun! vimterm#Term(bang, count, vertical, args)
-  let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let [term_args, term_cmd] = s:SplitTermArgs(s:ExpandTermArgs(a:args))
+  if !empty(g:vim_term_shell)
+    let term_cmd = add(copy(g:vim_term_shell), join(term_cmd, " "))
+  endif
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(term_args, "++termwin")
@@ -402,7 +422,7 @@ endfun
 " Open a nix-shell or a run a command in a nix shell
 fun! vimterm#NixTerm(bang, vertical, args)
   let cterm_win		    = &buftype == "terminal"
-  let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let [term_args, term_cmd] = s:SplitTermArgs(s:ExpandTermArgs(a:args))
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
       call add(term_args, "++termwin")

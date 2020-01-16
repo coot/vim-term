@@ -2,6 +2,16 @@ if !exists("g:vim_term_termwin")
   let g:vim_term_termwin = v:false
 endif
 
+if !exists("g:vim_term_shell")
+  " shell used to run commands with :Term, it should be interactive shell.
+  " Most of the shells support `-i` and `-c` flags.
+  if has("win64") || has("win95")
+    let g:vim_term_shell = []
+  else
+    let g:vim_term_shell = [&shell, "-i", "-c"]
+  endif
+endif
+
 com! -bang -count=0 -nargs=* Shell  call vimterm#Shell(<q-bang>, <count>, v:false, <q-args>)
 com! -bang -count=0 -nargs=* VShell call vimterm#Shell(<q-bang>, <count>, v:true,  <q-args>)
 
