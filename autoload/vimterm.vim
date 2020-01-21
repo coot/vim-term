@@ -344,6 +344,7 @@ fun! vimterm#Term(bang, count, vertical, args)
   let list_terms   = index(term_cmd, "++ls") >= 0
   let term_shell   = v:false || index(term_args, '++shell') != -1
   if len(term_cmd) && !list_terms
+    let term_opts["term_name"] = join(term_cmd, " ")
     let term_cmd = add(copy(g:vim_term_shell), join(term_cmd, " "))
     call s:Terminal(term_shell ? "!" : a:bang, term_shell, winnr, term_opts, term_cmd)
   else
