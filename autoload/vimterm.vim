@@ -329,9 +329,6 @@ endfun
 " Run a command in a termianl.
 fun! vimterm#Term(bang, count, vertical, args)
   let [term_args, term_cmd] = s:SplitTermArgs(s:ExpandTermArgs(a:args))
-  if !empty(g:vim_term_shell)
-    let term_cmd = add(copy(g:vim_term_shell), join(term_cmd, " "))
-  endif
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(term_args, "++termwin")
@@ -342,6 +339,7 @@ fun! vimterm#Term(bang, count, vertical, args)
   let list_terms   = index(term_cmd, "++ls") >= 0
   let term_shell   = v:false || index(term_args, '++shell') != -1
   if len(term_cmd) && !list_terms
+    let term_cmd = add(copy(g:vim_term_shell), join(term_cmd, " "))
     call s:Terminal(term_shell ? "!" : a:bang, term_shell, winnr, term_opts, term_cmd)
   else
     let curwin = index(term_args, "++curwin") != -1
