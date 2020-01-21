@@ -136,7 +136,7 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
     if a:curwin
       exe "b " . term.bufnr
     else
-      exe (a:vertical ? "vertical" : "") . " sb ". term.bufnr
+      exe (a:vertical == "vertical" ? "vertical" : "") . " sb ". term.bufnr
     endif
     setl buftype=terminal
     setl nonu nornu nospell wfh wfw
@@ -177,9 +177,14 @@ fun! s:TermArgMap(name)
   endif
 endfun
 
-fun! s:TermWin(term_args)
+fun! s:TermWin(term_args, vertical)
   let winnr = v:null
   let win   = {}
+  if a:vertical == "tab"
+    tabe
+    call add(a:term_args, "++curwin")
+    call filter(a:term_args, {_, val -> val != "++termwin"})
+  endif
   if index(a:term_args, "++termwin") >= 0
     call filter(a:term_args, {key, arg -> split(arg, '\s*=\s*')[0] != "++termwin"})
     let winnr      = v:null
@@ -317,7 +322,7 @@ fun! vimterm#Shell(bang, count, vertical, args)
   if a:bang == "!" || empty(term_bufs)
     let term_opts    = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
     let term_args    = s:SplitTermArgs(args)[0]
-    let [winnr, win] = s:TermWin(term_args)
+    let [winnr, win] = s:TermWin(term_args, a:vertical)
     let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, vimterm#ShellParse(&shell, split(&shell)))
   else
@@ -334,7 +339,7 @@ fun! vimterm#Term(bang, count, vertical, args)
       call add(term_args, "++termwin")
     endif
   endif
-  let [winnr, win] = s:TermWin(term_args)
+  let [winnr, win] = s:TermWin(term_args, a:vertical)
   let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical}, !empty(winnr))
   let list_terms   = index(term_cmd, "++ls") >= 0
   let term_shell   = v:false || index(term_args, '++shell') != -1
@@ -427,7 +432,7 @@ fun! vimterm#NixTerm(bang, vertical, args)
     endif
   endif
   let [nixfile,   nix_args] = s:NixArgs(term_cmd)
-  let [winnr, win]          = s:TermWin(term_args)
+  let [winnr, win]          = s:TermWin(term_args, a:vertical)
   let term_opts		    = {"vertical": a:vertical}
   if empty(term_cmd)
     let term_opts["term_finish"] = "close"
