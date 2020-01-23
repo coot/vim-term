@@ -143,7 +143,7 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
     if !exists("b:term_rows")
       let b:term_rows = 16
     endif
-    if !a:vertical && b:term_rows != v:null && !a:curwin
+    if a:vertical == "horizontal" && b:term_rows != v:null && !a:curwin
       exe "resize" . b:term_rows
     endif
     redraw!
@@ -278,6 +278,7 @@ endfun
 " a:term_opts  - terminal options
 " a:term_cmd   - terminal command
 fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
+  let g:term_opts = copy(a:term_opts)
   try
     let term_bufnr = term_start(a:term_cmd, a:term_opts)
   catch /.*/
@@ -320,9 +321,11 @@ fun! vimterm#Shell(bang, count, vertical, args)
     endif
   endif
   if a:bang == "!" || empty(term_bufs)
-    let term_opts    = {"vertical": a:vertical, "term_kill": "kill", "term_finish": "close"}
+    let term_opts    = {"vertical": a:vertical == "vertical", "term_kill": "kill", "term_finish": "close"}
     let term_args    = s:SplitTermArgs(args)[0]
     let [winnr, win] = s:TermWin(term_args, a:vertical)
+    let g:vertical1 = a:vertical
+    let g:term_opts1 = copy(term_opts)
     let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, vimterm#ShellParse(&shell, split(&shell)))
   else
@@ -340,7 +343,7 @@ fun! vimterm#Term(bang, count, vertical, args)
     endif
   endif
   let [winnr, win] = s:TermWin(term_args, a:vertical)
-  let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical}, !empty(winnr))
+  let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical == "vertical"}, !empty(winnr))
   let list_terms   = index(term_cmd, "++ls") >= 0
   let term_shell   = v:false || index(term_args, '++shell') != -1
   if len(term_cmd) && !list_terms
@@ -434,7 +437,7 @@ fun! vimterm#NixTerm(bang, vertical, args)
   endif
   let [nixfile,   nix_args] = s:NixArgs(term_cmd)
   let [winnr, win]          = s:TermWin(term_args, a:vertical)
-  let term_opts		    = {"vertical": a:vertical}
+  let term_opts		    = {"vertical": a:vertical == "vertical"}
   if empty(term_cmd)
     let term_opts["term_finish"] = "close"
   endif
