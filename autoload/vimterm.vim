@@ -217,10 +217,12 @@ fun! s:ExpandTermArgs(args)
     elseif arg == '-tw'
       let arg = '++notermwin'
     elseif arg == '+cw'
-      let arg == '++curwin'
+      let arg = '++curwin'
     elseif arg == '-cw'
       let arg = '++nocurwin'
     elseif arg == "+c"
+      let arg = "++close"
+    elseif arg == "-c"
       let arg = "++close"
     elseif arg == "+h"
       let arg = "++hidden"
@@ -231,16 +233,14 @@ fun! s:ExpandTermArgs(args)
 endfun
 
 " Split terminal arguments from the command arguments.
-"
-" TODO: spliting term args should be done before expanstion.
 fun! s:SplitTermArgs(args)
   let term_args = []
   let term_cmd  = []
   let x = v:true
   for arg in a:args 
     " stop at first arg which does not start with "+"
-    let x = x && arg =~ '^++'
-    if x && s:IsTermArg(split(arg, '\s*=\s*'))
+    let x = x && arg =~ '^[-+]'
+    if x
       call add(term_args, arg)
     else
       call add(term_cmd, arg)
@@ -323,18 +323,17 @@ endfun
 " Run a shell.
 fun! vimterm#Shell(bang, count, vertical, args)
   let term_bufs = s:TermBufs(v:false)
-  let args      = s:ExpandTermArgs(split(a:args))
+  let args       = split(a:args)
+  let xargs      = s:ExpandTermArgs(split(a:args))
   if exists("g:vim_term_termwin") && g:vim_term_termwin
-    if empty(filter(copy(args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
-      call add(args, "++termwin")
+    if empty(filter(xargs, {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
+      call insert(args, "++termwin", 0)
     endif
   endif
   if a:bang == "!" || empty(term_bufs)
     let term_opts    = {"vertical": a:vertical == "vertical", "term_kill": "kill", "term_finish": "close"}
-    let term_args    = s:SplitTermArgs(args)[0]
+    let term_args    = s:ExpandTermArgs(s:SplitTermArgs(args)[0])
     let [winnr, win] = s:TermWin(term_args, a:vertical)
-    let g:vertical1 = a:vertical
-    let g:term_opts1 = copy(term_opts)
     let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, vimterm#ShellParse(&shell, split(&shell)))
   else
@@ -345,7 +344,8 @@ endfun
 
 " Run a command in a termianl.
 fun! vimterm#Term(bang, count, vertical, args)
-  let [term_args, term_cmd] = s:SplitTermArgs(s:ExpandTermArgs(a:args))
+  let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let term_args = s:ExpandTermArgs(copy(term_args)) 
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(term_args, "++termwin")
@@ -438,7 +438,8 @@ endfun
 " Open a nix-shell or a run a command in a nix shell
 fun! vimterm#NixTerm(bang, vertical, args)
   let cterm_win		    = &buftype == "terminal"
-  let [term_args, term_cmd] = s:SplitTermArgs(s:ExpandTermArgs(a:args))
+  let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let term_args = s:ExpandTermArgs(copy(term_args))
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden"], arg) >= 0}))
       call add(term_args, "++termwin")
