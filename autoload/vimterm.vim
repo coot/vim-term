@@ -212,14 +212,18 @@ endfun
 fun! s:ExpandTermArgs(args)
   let args_ = []
   for arg in a:args
-    if arg     == '++tw'
+    if arg     == '+tw'
       let arg = '++termwin'
-    elseif arg == '++notw'
+    elseif arg == '-tw'
       let arg = '++notermwin'
-    elseif arg == '++cw'
+    elseif arg == '+cw'
       let arg == '++curwin'
-    elseif arg == '++nocw'
+    elseif arg == '-cw'
       let arg = '++nocurwin'
+    elseif arg == "+c"
+      let arg = "++close"
+    elseif arg == "+h"
+      let arg = "++hidden"
     endif
     call add(args_, arg)
   endfor
@@ -227,11 +231,16 @@ fun! s:ExpandTermArgs(args)
 endfun
 
 " Split terminal arguments from the command arguments.
+"
+" TODO: spliting term args should be done before expanstion.
 fun! s:SplitTermArgs(args)
   let term_args = []
   let term_cmd  = []
-  for arg in a:args
-    if s:IsTermArg(split(arg, '\s*=\s*'))
+  let x = v:true
+  for arg in a:args 
+    " stop at first arg which does not start with "+"
+    let x = x && arg =~ '^++'
+    if x && s:IsTermArg(split(arg, '\s*=\s*'))
       call add(term_args, arg)
     else
       call add(term_cmd, arg)
