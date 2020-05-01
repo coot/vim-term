@@ -290,8 +290,20 @@ fun! CloseFn(channel)
   " we need to protect, in case `term_start` fails
   if !empty(s:jobs[info["process"]])
     let job_opts = s:jobs[info["process"]]
-    if get(info, "exitval", 0) == 0 && job_opts["term_finish"] == "close"
+    let exitval = get(info, "exitval", 0)
+    " clsoe the buffer we were requested to do so, but only if the exit status 0
+    if job_opts["hidden"] && bufwinnr(job_opts["bufnr"]) == -1
+      if exitval != 0
+        exe "sb " . job_opts["bufnr"]
+        resize 16
+      else
+        echomsg "done: " . join(info["cmd"], " ")
+      endif
+    endif
+    if exitval == 0 && job_opts["term_finish"] == "close"
       exe "bd " . job_opts["bufnr"]
+    " open the buffer if the job was running in the background if it errored,
+    " but only if the buffer is not opened
     endif
     unlet s:jobs[info["process"]]
   endif
@@ -319,7 +331,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
       return
     endif
   endtry
-  let s:jobs[job_info(term_getjob(term_bufnr))["process"]] = { "bufnr": term_bufnr, "term_finish": term_finish }
+  let s:jobs[job_info(term_getjob(term_bufnr))["process"]] = { "bufnr": term_bufnr, "term_finish": term_finish, "hidden" : get(a:term_opts, "hidden", v:false)}
   if exists("term_bufnr")
     call setbufvar(term_bufnr, "term_shell", a:term_shell)
   endif
