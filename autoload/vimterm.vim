@@ -280,6 +280,23 @@ fun! s:TermArgsToTermOpts(term_args, term_opts, term_win)
   return a:term_opts
 endfun
 
+" in a function higher order functions this could be hidden in clousre of
+" 'CloseFn'
+let s:jobs = {}
+
+fun! CloseFn(channel)
+  let job  = ch_getjob(a:channel)
+  let info = job_info(job)
+  " we need to protect, in case `term_start` fails
+  if !empty(s:jobs[info["process"]])
+    let job_opts = s:jobs[info["process"]]
+    if get(info, "exitval", 0) == 0 && job_opts["term_finish"] == "close"
+      exe "bd " . job_opts["bufnr"]
+    endif
+    unlet s:jobs[info["process"]]
+  endif
+endfun
+
 " Low level wrapper around `:terminal` command.
 " a:bang       - if not set jump back to the original window
 " a:term_shell - v:true if we run a shell
@@ -287,17 +304,22 @@ endfun
 " a:term_opts  - terminal options
 " a:term_cmd   - terminal command
 fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
-  let g:term_opts = copy(a:term_opts)
+  let term_finish = get(a:term_opts, "term_finish", "")
+  if !empty(term_finish)
+    unlet a:term_opts["term_finish"]
+  endif
   try
+    let a:term_opts["close_cb"] = function("CloseFn")
     let term_bufnr = term_start(a:term_cmd, a:term_opts)
   catch /.*/
     echohl ErrorMsg
-    echomsg "vim-term cought: " . v:errmsg
+    echomsg "vim-term cought: " . v:exception
     echohl Normal
     if &buftype != "terminal"
       return
     endif
   endtry
+  let s:jobs[job_info(term_getjob(term_bufnr))["process"]] = { "bufnr": term_bufnr, "term_finish": term_finish }
   if exists("term_bufnr")
     call setbufvar(term_bufnr, "term_shell", a:term_shell)
   endif
