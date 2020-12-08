@@ -141,7 +141,7 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
     setl buftype=terminal
     setl nonu nornu nospell wfh wfw
     if !exists("b:term_rows")
-      let b:term_rows = 16
+      let b:term_rows = g:vim_term_rows
     endif
     if a:vertical == "horizontal" && b:term_rows != v:null && !a:curwin
       exe "resize" . b:term_rows
@@ -253,7 +253,7 @@ endfun
 " terminal options.
 fun! s:TermArgsToTermOpts(term_args, term_opts, term_win)
   if !get(a:term_opts, "vertical", v:false) && index(a:term_args, "++curwin") == -1
-    let a:term_opts["term_rows"] = get(a:term_opts, "term_rows", 16)
+    let a:term_opts["term_rows"] = get(a:term_opts, "term_rows", g:vim_term_rows)
   endif
   for arg in map(copy(a:term_args), {idx, val -> split(val, '\s*=\s*')})
     if !s:IsShellArg(arg)
@@ -336,13 +336,13 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
     call setbufvar(term_bufnr, "term_shell", a:term_shell)
   endif
   if get(a:term_opts, "hidden", v:false)
-    call setbufvar(term_bufnr, "term_rows", get(a:term_opts, "term_rows", 16))
+    call setbufvar(term_bufnr, "term_rows", get(a:term_opts, "term_rows", g:vim_term_rows))
     return
   endif
   let curwin = !a:winnr && get(a:term_opts, "curwin", v:false)
   if !curwin
     setl nonu nornu nospell wfh wfw
-    let b:term_rows = get(a:term_opts, "term_rows", 16)
+    let b:term_rows = get(a:term_opts, "term_rows", g:vim_term_rows)
     if !get(a:term_opts, "vertical", v:false) && !a:winnr
       exe "resize" . b:term_rows
     endif

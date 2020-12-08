@@ -2,6 +2,10 @@ if !exists("g:vim_term_termwin")
   let g:vim_term_termwin = v:false
 endif
 
+if !exists("g:vim_term_rows")
+  let g:vim_term_rows=16
+endif
+
 if !exists("g:vim_term_shell")
   " shell used to run commands with :Term, it should be interactive shell.
   " Most of the shells support `-i` and `-c` flags.
