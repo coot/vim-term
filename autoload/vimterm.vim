@@ -90,7 +90,7 @@ endfun
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)
-fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin, term_opts, curwin)
+fun! s:ListTerms(mods, bang, count, term_bufs, jump_one, winnr, win, termwin, term_opts, curwin)
   if len(a:term_bufs) == 0
     return
     if a:winnr
@@ -130,20 +130,21 @@ fun! s:ListTerms(bang, count, term_bufs, jump_one, winnr, win, vertical, termwin
   let term = a:term_bufs[idx-1]
   if a:termwin && !empty(a:win)
     exe a:win.winnr . "wincmd w"
-    exe "b " . term.bufnr
+    exe a:mods . " b " . term.bufnr
     setl buftype=terminal
   else
     if a:curwin
       exe "b " . term.bufnr
     else
-      exe (a:vertical == "vertical" ? "vertical" : "") . " sb ". term.bufnr
+      exe  a:mods . " sb ". term.bufnr
     endif
     setl buftype=terminal
     setl nonu nornu nospell wfh wfw
     if !exists("b:term_rows")
       let b:term_rows = g:vim_term_rows
     endif
-    if a:vertical == "horizontal" && b:term_rows != v:null && !a:curwin
+    let mods = split(a:mods, '\s\+')
+    if (index(mods, "vertical") == -1) && (index(mods, "tab") == -1) && b:term_rows != v:null && !a:curwin
       exe "resize" . b:term_rows
     endif
     redraw!
@@ -177,10 +178,10 @@ fun! s:TermArgMap(name)
   endif
 endfun
 
-fun! s:TermWin(term_args, vertical)
+fun! s:TermWin(term_args, mods)
   let winnr = v:null
   let win   = {}
-  if a:vertical == "tab"
+  if index(a:mods, "tab") != -1
     tabe
     call add(a:term_args, "++curwin")
     call filter(a:term_args, {_, val -> val != "++termwin"})
@@ -310,6 +311,7 @@ fun! CloseFn(channel)
 endfun
 
 " Low level wrapper around `:terminal` command.
+" a:mods       - command modifiers (:h <mods>)
 " a:bang       - if not set jump back to the original window
 " a:term_shell - v:true if we run a shell
 " a:winnr      - non v:null iff we jumped to termwin (in s:TermWin)
@@ -355,9 +357,10 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
 endfun
 
 " Run a shell.
-fun! vimterm#Shell(bang, count, vertical, args)
+fun! vimterm#Shell(mods, bang, count, args)
   let term_bufs = s:TermBufs(v:false)
   let args       = split(a:args)
+  let mods       = split(a:mods, '\s\+')
   let xargs      = s:ExpandTermArgs(split(a:args))
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(xargs, {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
@@ -365,28 +368,29 @@ fun! vimterm#Shell(bang, count, vertical, args)
     endif
   endif
   if a:bang == "!" || empty(term_bufs)
-    let term_opts    = {"vertical": a:vertical == "vertical", "term_kill": "kill", "term_finish": "close"}
+    let term_opts    = {"vertical": index(mods, "vertical") != -1, "term_kill": "kill", "term_finish": "close"}
     let term_args    = s:ExpandTermArgs(s:SplitTermArgs(args)[0])
-    let [winnr, win] = s:TermWin(term_args, a:vertical)
+    let [winnr, win] = s:TermWin(term_args, mods)
     let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
     return s:Terminal("!", v:true, winnr, term_opts, vimterm#ShellParse(&shell, split(&shell)))
   else
     let win = s:FindTermWin(index(args, "++curwin") != -1)
-    call s:ListTerms("!", a:count, term_bufs, v:true, v:null, win, a:vertical, index(args, "++termwin") != -1, {}, index(args, "++curwin") != -1)
+    call s:ListTerms(a:mods, "!", a:count, term_bufs, v:true, v:null, win, index(args, "++termwin") != -1, {}, index(args, "++curwin") != -1)
   endif
 endfun
 
 " Run a command in a termianl.
-fun! vimterm#Term(bang, count, vertical, args)
+fun! vimterm#Term(mods, bang, count, args)
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
+  let mods      = split(a:mods, '\s\+')
   let term_args = s:ExpandTermArgs(copy(term_args)) 
   if exists("g:vim_term_termwin") && g:vim_term_termwin
     if empty(filter(copy(term_args), {idx, arg -> index(["++notermwin", "++termwin", "++hidden", "++curwin"], arg) >= 0}))
       call add(term_args, "++termwin")
     endif
   endif
-  let [winnr, win] = s:TermWin(term_args, a:vertical)
-  let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": a:vertical == "vertical"}, !empty(winnr))
+  let [winnr, win] = s:TermWin(term_args, mods)
+  let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": index(mods, "vertical") != -1 }, !empty(winnr))
   let list_terms   = index(term_cmd, "++ls") >= 0
   let term_shell   = v:false || index(term_args, '++shell') != -1
   if len(term_cmd) && !list_terms
@@ -396,9 +400,9 @@ fun! vimterm#Term(bang, count, vertical, args)
   else
     let curwin = index(term_args, "++curwin") != -1
     if list_terms
-      call s:ListTerms(a:bang, a:count, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, a:vertical, !empty(winnr), term_opts, curwin)
+      call s:ListTerms(a:mods, a:bang, a:count, extend(s:TermBufs(v:false), s:TermBufs(v:true)), v:false, winnr, win, !empty(winnr), term_opts, curwin)
     else
-      call s:ListTerms(a:bang, a:count, s:TermBufs(v:true), v:true, winnr, win, a:vertical, !empty(winnr), term_opts, curwin)
+      call s:ListTerms(a:mods, a:bang, a:count, s:TermBufs(v:true), v:true, winnr, win, !empty(winnr), term_opts, curwin)
     endif
   endif
 endfun
@@ -470,8 +474,9 @@ fun! s:NixArgs(args)
 endfun
 
 " Open a nix-shell or a run a command in a nix shell
-fun! vimterm#NixTerm(bang, vertical, args)
+fun! vimterm#NixTerm(mods, bang, args)
   let cterm_win		    = &buftype == "terminal"
+  let mods                  = split(a:mods, '\s\+')
   let [term_args, term_cmd] = s:SplitTermArgs(a:args)
   let term_args = s:ExpandTermArgs(copy(term_args))
   if exists("g:vim_term_termwin") && g:vim_term_termwin
@@ -480,8 +485,8 @@ fun! vimterm#NixTerm(bang, vertical, args)
     endif
   endif
   let [nixfile,   nix_args] = s:NixArgs(term_cmd)
-  let [winnr, win]          = s:TermWin(term_args, a:vertical)
-  let term_opts		    = {"vertical": a:vertical == "vertical"}
+  let [winnr, win]          = s:TermWin(term_args, mods)
+  let term_opts		    = {"vertical": index(mods, "vertical") != -1}
   if empty(term_cmd)
     let term_opts["term_finish"] = "close"
   endif
