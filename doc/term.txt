@@ -38,6 +38,8 @@ arguments (this is how <f-args> works).
 
         ++hidden / +h Run the job in a hidden window
 
+        ++rows        Number of rows for a new window.
+
 
 	When listing terminals the following info is displayed: buffer number,
 	abreviated status "r" for "running", "n" for "normalmode" and "f" for
@@ -94,3 +96,7 @@ arguments (this is how <f-args> works).
 |g:vim_term_termwin| if set to |v:true| (default |v:false|) then all the
 commands will behave as ++termwin was passed to them by default (re-using the
 current terminal window).  You can use then ++notermwin to open in a new window.
+
+                                                    *g:vim_term_rows*
+|g:vim_term_rows| the default number of rows for shell or term windows.  This
+can be modified with ++rows option 
