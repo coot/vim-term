@@ -21,3 +21,22 @@ com! -bang -count=0 -nargs=* -complete=file Term  :call vimterm#Term(<q-mods>, <
 if exists("g:vim_term_nixterm")
   com! -bang -nargs=* -complete=file NixTerm  :call vimterm#NixTerm(<q-mods>, <q-bang>, vimterm#ShellParse(<q-args>, <f-args>))
 endif
+
+
+" Turn off wrap scan option for terminal buffers, store the global option in
+" 's:wrapscan' (note: 'wrapscan' is a global option, hence all the
+" complexity).
+let s:wrapscan = &wrapscan
+fun s:ToggleWrapscan() abort
+  if &buftype == 'terminal'
+    noautocmd set nowrapscan
+  else
+    let &wrapscan = s:wrapscan
+  endif
+endfun
+
+augroup VimTermWrapScan
+  au!
+  au BufEnter  *        call s:ToggleWrapscan()
+  au OptionSet wrapscan let s:wrapscan = v:option_new
+augroup END

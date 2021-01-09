@@ -344,6 +344,7 @@ fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
   let curwin = !a:winnr && get(a:term_opts, "curwin", v:false)
   if !curwin
     setl nonu nornu nospell wfh wfw
+    noautocmd set nows
     let b:term_rows = get(a:term_opts, "term_rows", g:vim_term_rows)
     if !get(a:term_opts, "vertical", v:false) && !a:winnr
       exe "resize" . b:term_rows
