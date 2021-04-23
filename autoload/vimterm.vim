@@ -311,20 +311,20 @@ fun! CloseFn(channel)
 endfun
 
 " Low level wrapper around `:terminal` command.
-" a:mods       - command modifiers (:h <mods>)
+" a:mods       - string with all command modifiers (:h <mods>)
 " a:bang       - if not set jump back to the original window
 " a:term_shell - v:true if we run a shell
 " a:winnr      - non v:null iff we jumped to termwin (in s:TermWin)
 " a:term_opts  - terminal options
 " a:term_cmd   - terminal command
-fun! s:Terminal(bang, term_shell, winnr, term_opts, term_cmd)
+fun! s:Terminal(mods, bang, term_shell, winnr, term_opts, term_cmd)
   let term_finish = get(a:term_opts, "term_finish", "")
   if !empty(term_finish)
     unlet a:term_opts["term_finish"]
   endif
   try
     let a:term_opts["close_cb"] = function("CloseFn")
-    let term_bufnr = term_start(a:term_cmd, a:term_opts)
+    exe a:mods . ' let term_bufnr = term_start(a:term_cmd, a:term_opts)'
   catch /.*/
     echohl ErrorMsg
     echomsg "vim-term cought: " . v:exception
@@ -373,7 +373,7 @@ fun! vimterm#Shell(mods, bang, count, args)
     let term_args    = s:ExpandTermArgs(s:SplitTermArgs(args)[0])
     let [winnr, win] = s:TermWin(term_args, mods)
     let term_opts    = s:TermArgsToTermOpts(term_args, term_opts, !empty(winnr))
-    return s:Terminal("!", v:true, winnr, term_opts, vimterm#ShellParse(&shell, split(&shell)))
+    return s:Terminal(a:mods, "!", v:true, winnr, term_opts, vimterm#ShellParse(&shell, split(&shell)))
   else
     let win = s:FindTermWin(index(args, "++curwin") != -1)
     call s:ListTerms(a:mods, "!", a:count, term_bufs, v:true, v:null, win, index(args, "++termwin") != -1, {}, index(args, "++curwin") != -1)
@@ -397,7 +397,7 @@ fun! vimterm#Term(mods, bang, count, args)
   if len(term_cmd) && !list_terms
     let term_opts["term_name"] = join(term_cmd, " ")
     let term_cmd = add(copy(g:vim_term_shell), join(term_cmd, " "))
-    call s:Terminal(term_shell ? "!" : a:bang, term_shell, winnr, term_opts, term_cmd)
+    call s:Terminal(a:mods, term_shell ? "!" : a:bang, term_shell, winnr, term_opts, term_cmd)
   else
     let curwin = index(term_args, "++curwin") != -1
     if list_terms
@@ -513,5 +513,5 @@ fun! vimterm#NixTerm(mods, bang, args)
   endif
   let term_bang = !empty(term_cmd) ? "" : "!"
   let term_shell = empty(term_cmd) || index(term_args, '++shell') != -1
-  call s:Terminal(term_bang, term_shell, winnr, term_opts, nix_cmd)
+  call s:Terminal(a:mods, term_bang, term_shell, winnr, term_opts, nix_cmd)
 endfun
