@@ -278,6 +278,9 @@ fun! s:TermArgsToTermOpts(term_args, term_opts, term_win)
     
     let a:term_opts[s:TermArgMap(arg[0])] = val
   endfor
+  if !has_key(a:term_opts, "cwd")
+    let a:term_opts["cwd"]=getcwd()
+  endif
   return a:term_opts
 endfun
 
