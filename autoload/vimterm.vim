@@ -87,6 +87,17 @@ fun! s:TermBufs(term_shell)
   return filter(map(sort(term_list(), 'n'), {key, bufnr -> getbufinfo(bufnr)[0]}), {key, val -> getbufvar(val.bufnr, "term_shell") != a:term_shell})
 endfun
 
+fun! s:ShellBufs()
+  return filter(map(sort(term_list(), 'n'), {key, bufnr -> getbufinfo(bufnr)[0]}), {key, val -> getbufvar(val.bufnr, "term_shell") == v:true})
+endfun
+
+fun! vimterm#ResetTerms() abort
+  for bufinfo in s:ShellBufs()
+    " TODO: this might not work for all terminals
+    call term_sendkeys(bufinfo.bufnr, '')
+  endfor
+endfun
+
 " todo:
 " - add # pointer: `ListTerms#` jumps to previous pointer position
 "   (the <c-^> key could be remapped in term window)

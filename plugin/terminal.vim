@@ -38,6 +38,7 @@ endfun
 
 augroup VimTermWrapScan
   au!
-  au BufEnter  *        call s:ToggleWrapscan()
-  au OptionSet wrapscan let s:wrapscan = v:option_new
+  au BufEnter  *          call s:ToggleWrapscan()
+  au OptionSet wrapscan   let s:wrapscan = v:option_new
+  au OptionSet background call vimterm#ResetTerms()
 augroup END
