@@ -151,12 +151,12 @@ fun! s:ListTerms(mods, bang, count, term_bufs, jump_one, winnr, win, termwin, te
     endif
     setl buftype=terminal
     setl nonu nornu nospell wfh wfw
-    if !exists("b:term_rows")
-      let b:term_rows = g:vim_term_rows
+    if !exists("b:vim_term_rows")
+      let b:vim_term_rows = g:vim_term_rows
     endif
     let mods = split(a:mods, '\s\+')
-    if (index(mods, "vertical") == -1) && (index(mods, "tab") == -1) && b:term_rows != v:null && !a:curwin
-      exe "resize" . b:term_rows
+    if (index(mods, "vertical") == -1) && (index(mods, "tab") == -1) && b:vim_term_rows != v:null && !a:curwin
+      exe "resize" . b:vim_term_rows
     endif
     redraw!
   endif
@@ -359,9 +359,9 @@ fun! s:Terminal(mods, bang, term_shell, winnr, term_opts, term_cmd)
   if !curwin
     setl nonu nornu nospell wfh wfw
     noautocmd set nows
-    let b:term_rows = get(a:term_opts, "term_rows", g:vim_term_rows)
+    let b:vim_term_rows = get(a:term_opts, "term_rows", g:vim_term_rows)
     if !get(a:term_opts, "vertical", v:false) && !a:winnr
-      exe "resize" . b:term_rows
+      exe "resize" . b:vim_term_rows
     endif
   endif
   if empty(a:bang) && a:winnr != winnr() && !curwin
