@@ -60,8 +60,9 @@ arguments (this is how <f-args> works).
 	  :Term ++hidden http-server "some directory with spaces"
 
 						    *:Job*
-:[N]Job [options] [args]
-        Like `:Term` but `++hidden` and `++close` are set by default.
+:[N]Job[!] [options] [args]
+        Like `:Term` but `++hidden` and `++close` are set by default (unless
+        bang is used).
 
 
 						    *:Shell*
