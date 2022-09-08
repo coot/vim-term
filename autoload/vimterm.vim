@@ -324,6 +324,19 @@ fun! CloseFn(channel)
   endif
 endfun
 
+fun! ErrorFn(channel, message)
+  let job  = ch_getjob(a:channel)
+  let info = job_info(job)
+  " we need to protect, in case `term_start` fails
+  if !empty(s:jobs[info["process"]])
+    let cmd = info["cmd"]
+    let msg = info["cmd"] . " (" . info["process"] . "): " a:message
+    echohl WarningMsg
+    echomsg msg
+    echohl Normal
+  endif
+endfun
+
 " Low level wrapper around `:terminal` command.
 " a:mods       - string with all command modifiers (:h <mods>)
 " a:bang       - if not set jump back to the original window
@@ -406,6 +419,7 @@ fun! vimterm#Term(mods, bang, count, args)
   endif
   let [winnr, win] = s:TermWin(term_args, mods)
   let term_opts	   = s:TermArgsToTermOpts(term_args, {"vertical": index(mods, "vertical") != -1 }, !empty(winnr))
+  let term_opts["err_cb"] = function("ErrorFn")
   let list_terms   = index(term_cmd, "++ls") >= 0
   let term_shell   = v:false || index(term_args, '++shell') != -1
   if len(term_cmd) && !list_terms

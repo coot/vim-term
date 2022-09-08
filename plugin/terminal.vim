@@ -21,7 +21,7 @@ com! -bang -count=0 -nargs=* -complete=shellcmd Term  :call vimterm#Term(<q-mods
 com! -bang -count=0 -nargs=* -complete=shellcmd Job   :call vimterm#Term(<q-mods>,  <q-bang>, <count>, vimterm#ShellParse(   (<q-bang> == '!' ? '' : '++hidden ++close ') .
                                                                                                                             \ expandcmd(<q-args>),
                                                                                                                           \ <q-bang> == '!' ? '' : '++hidden',
-                                                                                                                          \ <q-bang> == '!' ? '' :  '++close',
+                                                                                                                          \ <q-bang> == '!' ? '' : '++close',
                                                                                                                           \ <f-args>))
 if exists("g:vim_term_nixterm")
   com! -bang -nargs=* -complete=file NixTerm  :call vimterm#NixTerm(<q-mods>, <q-bang>, vimterm#ShellParse(<q-args>, <f-args>))
